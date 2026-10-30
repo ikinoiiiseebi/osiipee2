@@ -25,6 +25,13 @@ public class PeeController : MonoBehaviour
     public float weakThreshold = 15f;// 残りがこれ以下で勢いが落ちる
     public float shakeBoostTime = 0.15f; // スペース1回で勢いが戻る時間
 
+        [Header("跳ね返り")]
+    public ParticleSystem splash;          // 飛び散り用パーティクル
+    public float splashThreshold = 1.2f;   // これ以下の垂直な勢いなら跳ねない
+    public float splashMaxSpeed = 4f;      // この勢いで跳ね返り確率が最大
+    public float maxSplashChance = 0.4f;   // 跳ね返り確率の上限
+    public int splashDrops = 3;            // 1回の跳ね返りで飛ぶ粒の数
+
     ParticleSystem ps;
     readonly List<ParticleCollisionEvent> events = new List<ParticleCollisionEvent>();
     int inCount, outCount;
@@ -98,11 +105,49 @@ public class PeeController : MonoBehaviour
         }
     }
 
-    void OnParticleCollision(GameObject other)
+        void OnParticleCollision(GameObject other)
     {
         int n = ps.GetCollisionEvents(other, events);
-        if (other.CompareTag("Urinal")) inCount += n;
-        else if (other.CompareTag("Out")) outCount += n;
+
+        if (other.CompareTag("Urinal"))
+        {
+            for (int i = 0; i < n; i++)
+            {
+                var e = events[i];
+                inCount++;
+
+                // 面に対して垂直な勢いが強いほど跳ねやすい
+                float vn = Mathf.Abs(Vector3.Dot(e.velocity, e.normal));
+                float chance = Mathf.Clamp01(
+                    (vn - splashThreshold) / (splashMaxSpeed - splashThreshold)) * maxSplashChance;
+
+                if (Random.value < chance)
+                {
+                    outCount++;  // 跳ね返りは枠外扱い
+                    EmitSplash(e);
+                }
+            }
+        }
+        else if (other.CompareTag("Out"))
+        {
+            outCount += n;
+        }
+    }
+
+    void EmitSplash(ParticleCollisionEvent e)
+    {
+        if (splash == null) return;
+        Vector3 bounce = Vector3.Reflect(e.velocity, e.normal) * 0.4f;
+        for (int k = 0; k < splashDrops; k++)
+        {
+            var ep = new ParticleSystem.EmitParams
+            {
+                position = e.intersection + e.normal * 0.01f,
+                velocity = bounce + Random.insideUnitSphere * 0.5f,
+                applyShapeToPosition = false
+            };
+            splash.Emit(ep, 1);
+        }
     }
 
     float Rate()
