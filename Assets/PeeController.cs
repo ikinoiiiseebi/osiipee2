@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -25,24 +26,35 @@ public class PeeController : MonoBehaviour
     public float weakThreshold = 15f;// 残りがこれ以下で勢いが落ちる
     public float shakeBoostTime = 0.15f; // スペース1回で勢いが戻る時間
 
-        [Header("跳ね返り")]
-    public ParticleSystem splash;          // 飛び散り用パーティクル
-    public float splashThreshold = 1.2f;   // これ以下の垂直な勢いなら跳ねない
-    public float splashMaxSpeed = 4f;      // この勢いで跳ね返り確率が最大
-    public float maxSplashChance = 0.4f;   // 跳ね返り確率の上限
-    public int splashDrops = 3;            // 1回の跳ね返りで飛ぶ粒の数
+    [Header("跳ね返り")]
+    public ParticleSystem splash;
+    public float splashThreshold = 1.2f;
+    public float splashMaxSpeed = 4f;
+    public float maxSplashChance = 0.4f;
+    public int splashDrops = 3;
+
+    [Header("スコア")]
+    public float flyBonus = 3000f;        // ハエ命中率100%で加算される点
+    public float parTime = 30f;           // これより早いとボーナス
+    public float timeBonusPerSec = 50f;   // 1秒早いごとの加算
+    public int rankingSize = 5;
 
     ParticleSystem ps;
     readonly List<ParticleCollisionEvent> events = new List<ParticleCollisionEvent>();
-    int inCount, outCount;
+    int inCount, outCount, flyCount;
     State state = State.Countdown;
     float countdown = 3f, elapsed, remaining, lastShake = -10f, endTimer;
+    int finalScore, myRank = -1;
+    List<int> ranking = new List<int>();
+
+    string RankingKey => "ranking_" + System.DateTime.Now.ToString("yyyyMMdd");
 
     void Start()
     {
         ps = GetComponent<ParticleSystem>();
         remaining = tank;
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ranking = LoadRanking();
     }
 
     void Update()
@@ -75,7 +87,6 @@ public class PeeController : MonoBehaviour
                 remaining -= (push ? pushDrain : normalDrain) * dt;
                 float speed = push ? pushSpeed : normalSpeed;
 
-                // 終わりかけ：勢いが落ちる。スペース（振る）で一瞬戻る
                 if (remaining < weakThreshold)
                 {
                     bool shaking = Time.time - lastShake < shakeBoostTime;
@@ -89,41 +100,53 @@ public class PeeController : MonoBehaviour
                 {
                     ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
                     state = State.Finishing;
-                    endTimer = 2f; // 空中の粒が落ち切るのを待つ
+                    endTimer = 2f;
                 }
                 break;
 
             case State.Finishing:
                 endTimer -= dt;
-                if (endTimer <= 0f) state = State.Result;
+                if (endTimer <= 0f)
+                {
+                    finalScore = CalcScore();
+                    SaveScore(finalScore);
+                    state = State.Result;
+                }
                 break;
 
             case State.Result:
                 if (kb.rKey.wasPressedThisFrame)
                     SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                if (kb.f12Key.wasPressedThisFrame)   // 本日のランキングを消去（テスト用）
+                {
+                    PlayerPrefs.DeleteKey(RankingKey);
+                    ranking.Clear();
+                    myRank = -1;
+                }
                 break;
         }
     }
 
-        void OnParticleCollision(GameObject other)
+    void OnParticleCollision(GameObject other)
     {
         int n = ps.GetCollisionEvents(other, events);
+        bool isFly = other.CompareTag("Fly");
 
-        if (other.CompareTag("Urinal"))
+        if (isFly || other.CompareTag("Urinal"))
         {
             for (int i = 0; i < n; i++)
             {
                 var e = events[i];
                 inCount++;
+                if (isFly) flyCount++;
 
-                // 面に対して垂直な勢いが強いほど跳ねやすい
                 float vn = Mathf.Abs(Vector3.Dot(e.velocity, e.normal));
                 float chance = Mathf.Clamp01(
                     (vn - splashThreshold) / (splashMaxSpeed - splashThreshold)) * maxSplashChance;
 
                 if (Random.value < chance)
                 {
-                    outCount++;  // 跳ね返りは枠外扱い
+                    outCount++;
                     EmitSplash(e);
                 }
             }
@@ -156,27 +179,54 @@ public class PeeController : MonoBehaviour
         return total == 0 ? 100f : inCount * 100f / total;
     }
 
+    float FlyRate() => inCount == 0 ? 0f : flyCount * 100f / inCount;
+
+    int CalcScore()
+    {
+        float score = Rate() * 100f
+                    + FlyRate() / 100f * flyBonus
+                    + Mathf.Max(0f, parTime - elapsed) * timeBonusPerSec;
+        return Mathf.RoundToInt(score);
+    }
+
     string Rank(float r) => r >= 98f ? "S" : r >= 95f ? "A" : r >= 90f ? "B" : "C";
+
+    List<int> LoadRanking()
+    {
+        string s = PlayerPrefs.GetString(RankingKey, "");
+        return s.Length == 0 ? new List<int>() : s.Split(',').Select(int.Parse).ToList();
+    }
+
+    void SaveScore(int score)
+    {
+        ranking.Add(score);
+        ranking = ranking.OrderByDescending(x => x).Take(rankingSize).ToList();
+        myRank = ranking.IndexOf(score);
+        PlayerPrefs.SetString(RankingKey, string.Join(",", ranking));
+        PlayerPrefs.Save();
+    }
 
     void OnGUI()
     {
         var big = new GUIStyle(GUI.skin.label) { fontSize = 80, alignment = TextAnchor.MiddleCenter };
         var mid = new GUIStyle(GUI.skin.label) { fontSize = 36, alignment = TextAnchor.MiddleCenter };
         var hud = new GUIStyle(GUI.skin.label) { fontSize = 32 };
-        Rect center = new Rect(0, Screen.height * 0.25f, Screen.width, 120);
-        Rect below = new Rect(0, Screen.height * 0.25f + 120, Screen.width, 200);
+        var board = new GUIStyle(GUI.skin.box) { fontSize = 30, alignment = TextAnchor.UpperLeft, padding = new RectOffset(20, 20, 16, 16) };
+        Rect center = new Rect(0, Screen.height * 0.2f, Screen.width, 120);
+        Rect below = new Rect(0, Screen.height * 0.2f + 120, Screen.width, 300);
 
         switch (state)
         {
             case State.Countdown:
                 GUI.Label(center, Mathf.CeilToInt(countdown).ToString(), big);
-                GUI.Label(below, "マウスで狙え　左クリックで踏ん張れ", mid);
+                string best = ranking.Count > 0 ? $"\n本日のベスト {ranking[0]}点" : "";
+                GUI.Label(below, "マウスで狙え　左クリックで踏ん張れ\nハエを狙うと高得点" + best, mid);
                 break;
 
             case State.Peeing:
             case State.Finishing:
-                GUI.Label(new Rect(20, 20, 900, 50),
-                    $"枠内率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%　{elapsed:F1}秒", hud);
+                GUI.Label(new Rect(20, 20, 1200, 50),
+                    $"枠内率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%　{elapsed:F1}秒　ハエ {flyCount}", hud);
                 if (state == State.Peeing && remaining < weakThreshold)
                     GUI.Label(below, "スペース連打で振れ！", mid);
                 break;
@@ -184,8 +234,16 @@ public class PeeController : MonoBehaviour
             case State.Result:
                 float r = Rate();
                 GUI.Label(center, $"ランク {Rank(r)}", big);
+                string record = myRank == 0 ? "\n★ 本日の新記録！ ★" : "";
                 GUI.Label(below,
-                    $"枠内率 {r:F1}%　タイム {elapsed:F1}秒\nあなたの足元に {outCount} 滴\n\nRでもう一度", mid);
+                    $"{finalScore} 点{record}\n" +
+                    $"枠内率 {r:F1}%　タイム {elapsed:F1}秒　ハエ命中 {FlyRate():F1}%\n" +
+                    $"あなたの足元に {outCount} 滴\n\nRでもう一度", mid);
+
+                string list = "本日のランキング\n";
+                for (int i = 0; i < ranking.Count; i++)
+                    list += $"{(i == myRank ? "▶" : "　")}{i + 1}位　{ranking[i]}点\n";
+                GUI.Box(new Rect(Screen.width - 380, 20, 360, 60 + 44 * rankingSize), list, board);
                 break;
         }
     }
