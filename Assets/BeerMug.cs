@@ -12,6 +12,7 @@ public class BeerMug : MonoBehaviour
     readonly List<Renderer> glassParts = new List<Renderer>();
     Transform beer;
     int capacity, drops;
+    bool judged;
     float width, height;
 
     public float Fill => (float)drops / capacity; // 0〜1
@@ -92,6 +93,16 @@ public class BeerMug : MonoBehaviour
     {
         if (conveyor == null || conveyor.Halted) return;
         transform.position += Vector3.left * (conveyor.beltSpeed * Time.deltaTime);
+
+        // 左端で判定：9割以上で成功（緑）、足りなければ失敗（赤）
+        if (!judged && transform.position.x <= conveyor.endX)
+        {
+            judged = true;
+            bool success = Fill >= conveyor.successRatio;
+            var mat = success ? conveyor.SuccessMat : conveyor.FailMat;
+            foreach (var r in glassParts) r.sharedMaterial = mat;
+            conveyor.Report(this, success);
+        }
 
         if (transform.position.x <= conveyor.despawnX)
             Destroy(gameObject);

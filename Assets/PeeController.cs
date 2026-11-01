@@ -21,10 +21,14 @@ public class PeeController : MonoBehaviour
 
     [Header("タンク")]
     public float tank = 100f;
-    public float normalDrain = 4f;   // 1秒あたりの減り（約25秒で空）
+    public float normalDrain = 4f;   // 1秒あたりの減り
     public float pushDrain = 7f;     // 踏ん張り中の減り
     public float weakThreshold = 15f;// 残りがこれ以下で勢いが落ちる
-    public float shakeBoostTime = 0.15f; // スペース1回で勢いが戻る時間
+    public float shakeBoostTime = 0.15f; // 右クリック1回で勢いが戻る時間
+
+    [Header("我慢（スペース長押し）")]
+    public float holdMax = 1f;       // 連続で我慢できる秒数
+    public float holdCooldown = 1f;  // 我慢のあとのクールタイム
 
     [Header("跳ね返り")]
     public ParticleSystem splash;
@@ -33,17 +37,21 @@ public class PeeController : MonoBehaviour
     public float maxSplashChance = 0.4f;
     public int splashDrops = 3;
 
+    [Header("コンベア（空なら自動で探す）")]
+    public BeerConveyor conveyor;
+
     [Header("スコア")]
-    public float flyBonus = 3000f;        // ハエ命中率100%で加算される点
     public float parTime = 30f;           // これより早いとボーナス
     public float timeBonusPerSec = 50f;   // 1秒早いごとの加算
     public int rankingSize = 5;
 
     ParticleSystem ps;
     readonly List<ParticleCollisionEvent> events = new List<ParticleCollisionEvent>();
-    int inCount, outCount, overflowCount, flyCount;
+    int inCount, outCount, overflowCount;
     State state = State.Countdown;
     float countdown = 3f, elapsed, remaining, lastShake = -10f, endTimer;
+    bool holding;
+    float holdUsed, cooldownLeft;
     int finalScore, myRank = -1;
     List<int> ranking = new List<int>();
 
@@ -55,6 +63,7 @@ public class PeeController : MonoBehaviour
         remaining = tank;
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ranking = LoadRanking();
+        if (conveyor == null) conveyor = FindFirstObjectByType<BeerConveyor>();
     }
 
     void Update()
@@ -76,13 +85,20 @@ public class PeeController : MonoBehaviour
         {
             case State.Countdown:
                 countdown -= dt;
-                if (countdown <= 0f) { state = State.Peeing; ps.Play(); }
+                if (countdown <= 0f)
+                {
+                    state = State.Peeing;
+                    ps.Play();
+                    if (conveyor != null) conveyor.Begin();
+                }
                 break;
 
             case State.Peeing:
                 elapsed += dt;
+                if (UpdateHold(kb, dt)) break;   // 我慢中は発射もタンクの減りも止まる
+
                 bool push = mouse.leftButton.isPressed;
-                if (kb.spaceKey.wasPressedThisFrame) lastShake = Time.time;
+                if (mouse.rightButton.wasPressedThisFrame) lastShake = Time.time;
 
                 remaining -= (push ? pushDrain : normalDrain) * dt;
                 float speed = push ? pushSpeed : normalSpeed;
@@ -99,6 +115,7 @@ public class PeeController : MonoBehaviour
                 if (remaining <= 0f)
                 {
                     ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                    if (conveyor != null) conveyor.StopSpawning();
                     state = State.Finishing;
                     endTimer = 2f;
                 }
@@ -108,6 +125,7 @@ public class PeeController : MonoBehaviour
                 endTimer -= dt;
                 if (endTimer <= 0f)
                 {
+                    if (conveyor != null) conveyor.Halt();
                     finalScore = CalcScore();
                     SaveScore(finalScore);
                     state = State.Result;
@@ -125,6 +143,33 @@ public class PeeController : MonoBehaviour
                 }
                 break;
         }
+    }
+
+    // スペース長押しで我慢。我慢中なら true
+    bool UpdateHold(Keyboard kb, float dt)
+    {
+        if (holding)
+        {
+            holdUsed += dt;
+            if (!kb.spaceKey.isPressed || holdUsed >= holdMax)
+            {
+                holding = false;
+                cooldownLeft = holdCooldown;
+                ps.Play();
+                return false;
+            }
+            return true;
+        }
+
+        if (cooldownLeft > 0f) cooldownLeft -= dt;
+        if (cooldownLeft <= 0f && kb.spaceKey.wasPressedThisFrame)
+        {
+            holding = true;
+            holdUsed = 0f;
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            return true;
+        }
+        return false;
     }
 
     void OnParticleCollision(GameObject other)
@@ -182,12 +227,13 @@ public class PeeController : MonoBehaviour
         return total == 0 ? 100f : inCount * 100f / total;
     }
 
-    float FlyRate() => inCount == 0 ? 0f : flyCount * 100f / inCount;
+    int Succeeded => conveyor != null ? conveyor.Succeeded : 0;
+    int Finished => conveyor != null ? conveyor.Finished : 0;
 
+    // 段階4で新ルールの式に変更する
     int CalcScore()
     {
         float score = Rate() * 100f
-                    + FlyRate() / 100f * flyBonus
                     + Mathf.Max(0f, parTime - elapsed) * timeBonusPerSec;
         return Mathf.RoundToInt(score);
     }
@@ -209,6 +255,45 @@ public class PeeController : MonoBehaviour
         PlayerPrefs.Save();
     }
 
+    void DrawBar(Rect r, float ratio, Color fill)
+    {
+        var old = GUI.color;
+        GUI.color = new Color(0f, 0f, 0f, 0.6f);
+        GUI.DrawTexture(r, Texture2D.whiteTexture);
+        GUI.color = fill;
+        GUI.DrawTexture(new Rect(r.x + 3, r.y + 3, (r.width - 6) * Mathf.Clamp01(ratio), r.height - 6),
+                        Texture2D.whiteTexture);
+        GUI.color = old;
+    }
+
+    void DrawHoldGauge(GUIStyle hud)
+    {
+        float x = 20, y = 80;
+        string label;
+        float ratio;
+        Color col;
+        if (holding)
+        {
+            label = "我慢中";
+            ratio = 1f - holdUsed / holdMax;
+            col = new Color(1f, 0.6f, 0.1f);
+        }
+        else if (cooldownLeft > 0f)
+        {
+            label = "クールタイム";
+            ratio = 1f - cooldownLeft / holdCooldown;
+            col = new Color(0.5f, 0.5f, 0.5f);
+        }
+        else
+        {
+            label = "我慢OK";
+            ratio = 1f;
+            col = new Color(0.3f, 0.8f, 1f);
+        }
+        GUI.Label(new Rect(x, y, 220, 50), label, hud);
+        DrawBar(new Rect(x + 220, y + 8, 300, 32), ratio, col);
+    }
+
     void OnGUI()
     {
         var big = new GUIStyle(GUI.skin.label) { fontSize = 80, alignment = TextAnchor.MiddleCenter };
@@ -223,15 +308,19 @@ public class PeeController : MonoBehaviour
             case State.Countdown:
                 GUI.Label(center, Mathf.CeilToInt(countdown).ToString(), big);
                 string best = ranking.Count > 0 ? $"\n本日のベスト {ranking[0]}点" : "";
-                GUI.Label(below, "マウスで狙え　左クリックで踏ん張れ\nハエを狙うと高得点" + best, mid);
+                GUI.Label(below,
+                    "マウスで狙え（上下で奥のレーン）　左クリック長押しで踏ん張れ\n" +
+                    "スペース長押しで我慢（最大1秒）\n" +
+                    "ジョッキを9割以上満たして左端へ送れ！" + best, mid);
                 break;
 
             case State.Peeing:
             case State.Finishing:
-                GUI.Label(new Rect(20, 20, 1200, 50),
-                    $"枠内率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%　{elapsed:F1}秒　あふれ {overflowCount}", hud);
+                GUI.Label(new Rect(20, 20, 1400, 50),
+                    $"成功 {Succeeded}/{Finished}　命中率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%　{elapsed:F1}秒　あふれ {overflowCount}", hud);
+                if (state == State.Peeing) DrawHoldGauge(hud);
                 if (state == State.Peeing && remaining < weakThreshold)
-                    GUI.Label(below, "スペース連打で振れ！", mid);
+                    GUI.Label(below, "右クリック連打で振れ！", mid);
                 break;
 
             case State.Result:
@@ -240,7 +329,7 @@ public class PeeController : MonoBehaviour
                 string record = myRank == 0 ? "\n★ 本日の新記録！ ★" : "";
                 GUI.Label(below,
                     $"{finalScore} 点{record}\n" +
-                    $"枠内率 {r:F1}%　タイム {elapsed:F1}秒　ハエ命中 {FlyRate():F1}%\n" +
+                    $"成功 {Succeeded}/{Finished}　命中率 {r:F1}%　タイム {elapsed:F1}秒\n" +
                     $"あなたの足元に {outCount} 滴\n\nRでもう一度", mid);
 
                 string list = "本日のランキング\n";
