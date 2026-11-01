@@ -413,11 +413,11 @@ public class PeeController : MonoBehaviour
     void DrawRankingBoard(Rect r, int highlight)
     {
         Wa.Blackboard(r);
-        Wa.Chalk(new Rect(r.x + 30, r.y + 22, r.width - 60, 48), "本日のランキング", 32, Wa.Chalk, TextAnchor.MiddleLeft, -1.5f);
-        Ui.Round(new Rect(r.x + 30, r.y + 72, r.width - 60, 2), new Color(Wa.Chalk.r, Wa.Chalk.g, Wa.Chalk.b, 0.4f));
+        Wa.Chalk(new Rect(r.x + 30, r.y + 22, r.width - 60, 48), "本日のランキング", 32, Wa.ChalkWhite, TextAnchor.MiddleLeft, -1.5f);
+        Ui.Round(new Rect(r.x + 30, r.y + 72, r.width - 60, 2), new Color(Wa.ChalkWhite.r, Wa.ChalkWhite.g, Wa.ChalkWhite.b, 0.4f));
         if (ranking.Count == 0)
         {
-            Wa.Chalk(new Rect(r.x + 30, r.y + 90, r.width - 60, 40), "まだ記録なし", 24, Wa.Chalk, TextAnchor.MiddleLeft, 1f);
+            Wa.Chalk(new Rect(r.x + 30, r.y + 90, r.width - 60, 40), "まだ記録なし", 24, Wa.ChalkWhite, TextAnchor.MiddleLeft, 1f);
             return;
         }
         float rowH = Mathf.Min(54f, (r.height - 110f) / Mathf.Max(1, rankingSize));
@@ -425,7 +425,7 @@ public class PeeController : MonoBehaviour
         {
             var row = new Rect(r.x + 30, r.y + 86 + i * rowH, r.width - 60, rowH - 6);
             float ang = (i % 2 == 0) ? -1f : 0.8f;
-            Color col = i == 0 ? Ui.Beer : Wa.Chalk;
+            Color col = i == 0 ? Ui.Beer : Wa.ChalkWhite;
             Wa.Chalk(new Rect(row.x, row.y, 100, row.height), $"{i + 1}位", 26, col, TextAnchor.MiddleLeft, ang);
             Wa.Chalk(new Rect(row.x, row.y, row.width, row.height), $"{ranking[i]:N0} 点", 28, col, TextAnchor.MiddleRight, ang);
             if (i == highlight)

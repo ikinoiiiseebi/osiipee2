@@ -205,7 +205,7 @@ public static class Wa
     public static readonly Color Washi = new Color(0.97f, 0.93f, 0.83f);
     public static readonly Color Ink = new Color(0.1f, 0.08f, 0.07f);          // 墨
     public static readonly Color Red = new Color(0.82f, 0.13f, 0.1f);          // 判子の赤
-    public static readonly Color Chalk = new Color(0.96f, 0.95f, 0.88f);
+    public static readonly Color ChalkWhite = new Color(0.96f, 0.95f, 0.88f);
     public static readonly Color InkOrange = new Color(0.85f, 0.4f, 0.1f);     // 和紙の上の点数 #D9661A
 
     static Texture2D woodTex, washiTex, boardTex, hankoTex;
