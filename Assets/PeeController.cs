@@ -287,7 +287,10 @@ public class PeeController : MonoBehaviour
 
     // 成功率（成功 ÷ 判定されたジョッキ）
     float SuccessRate() => Finished == 0 ? 0f : Succeeded * 100f / Finished;
-    string Rank(float sr) => sr >= 90f ? "S" : sr >= 70f ? "A" : sr >= 50f ? "B" : "C";
+    // ランクは合計点で決める（3,000点未満は D）
+    static string Rank(int score) =>
+        score >= 18000 ? "SS" : score >= 15000 ? "S" : score >= 10000 ? "A" :
+        score >= 7000 ? "B" : score >= 3000 ? "C" : "D";
 
     List<int> LoadRanking()
     {
@@ -586,10 +589,9 @@ public class PeeController : MonoBehaviour
         Wa.PriceRow(new Rect(bx, main.y + 226, bw, 64), "合計", $"{shown:N0}点", 42, Wa.Ink, Wa.InkOrange, dot);
 
         var dim = new Color(Wa.Ink.r, Wa.Ink.g, Wa.Ink.b, 0.75f);
-        float sr = SuccessRate();
         Ui.Text(new Rect(bx, main.y + 306, bw, 32), $"あふれ {overflowCount}滴　あなたの足元に {outCount}滴", 20, dim, TextAnchor.MiddleLeft, 0f);
-        Ui.Text(new Rect(bx, main.y + 346, bw, 30), $"判定は成功率（今回 {Succeeded}/{Finished}杯 ＝ {sr:F0}%）", 19, dim, TextAnchor.MiddleLeft, 0f);
-        Ui.Text(new Rect(bx, main.y + 376, bw, 30), "S 90%以上　A 70%以上　B 50%以上", 19, dim, TextAnchor.MiddleLeft, 0f);
+        Ui.Text(new Rect(bx, main.y + 346, bw, 30), "判定　SS 18,000〜　S 15,000〜　A 10,000〜", 19, dim, TextAnchor.MiddleLeft, 0f);
+        Ui.Text(new Rect(bx, main.y + 376, bw, 30), "　　　B 7,000〜　C 3,000〜　D 3,000未満", 19, dim, TextAnchor.MiddleLeft, 0f);
 
         // 新記録
         if (myRank == 0 && stampT >= 0f)
@@ -604,7 +606,7 @@ public class PeeController : MonoBehaviour
             float sc = stampT < 0.12f ? Mathf.Lerp(2.4f, 0.92f, stampT / 0.12f)
                      : stampT < 0.22f ? Mathf.Lerp(0.92f, 1f, (stampT - 0.12f) / 0.1f) : 1f;
             float al = Mathf.Clamp01(stampT / 0.08f);
-            Wa.Hanko(new Vector2(main.xMax - 130, main.y + 440), 170f, Rank(sr), sc, -12f, al);
+            Wa.Hanko(new Vector2(main.xMax - 130, main.y + 440), 170f, Rank(finalScore), sc, -12f, al);
         }
 
         // 黒板のランキング（自分の順位に黄色の下線）

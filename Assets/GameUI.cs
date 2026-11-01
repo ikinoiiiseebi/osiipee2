@@ -413,7 +413,7 @@ public static class Wa
         var r = new Rect(center.x - size / 2, center.y - size / 2, size, size);
         var c = Red; c.a = alpha * 0.92f;
         Draw(r, HankoTex, c);
-        Ui.Text(new Rect(r.x, r.y + size * 0.02f, size, size), letter, Mathf.RoundToInt(size * 0.58f), c, TextAnchor.MiddleCenter, 0f);
+        Ui.Text(new Rect(r.x, r.y + size * 0.02f, size, size), letter, Mathf.RoundToInt(size * (letter.Length >= 2 ? 0.4f : 0.58f)), c, TextAnchor.MiddleCenter, 0f);
         GUI.matrix = old;
     }
 }
