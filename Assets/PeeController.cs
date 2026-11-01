@@ -30,6 +30,9 @@ public class PeeController : MonoBehaviour
     public float holdMax = 1f;       // 連続で我慢できる秒数
     public float holdCooldown = 1f;  // 我慢のあとのクールタイム
 
+    [Header("文字（YuseiMagic-Regular.ttf を入れる。WebGLで日本語を出すのに必須）")]
+    public Font uiFont;
+
     [Header("跳ね返り")]
     public ParticleSystem splash;
     public float splashThreshold = 1.2f;
@@ -56,6 +59,11 @@ public class PeeController : MonoBehaviour
     List<int> ranking = new List<int>();
 
     string RankingKey => "ranking_" + System.DateTime.Now.ToString("yyyyMMdd");
+
+    void Awake()
+    {
+        GuiScale.Font = uiFont;
+    }
 
     void Start()
     {
@@ -394,8 +402,14 @@ public static class GuiScale
     public static float Width => Screen.width / Scale;   // 基準座標での画面の幅
     public static float Height => RefHeight;
 
-    public static void Apply() =>
+    // 画面の文字に使うフォント（PeeController の Inspector で設定）
+    public static Font Font;
+
+    public static void Apply()
+    {
         GUI.matrix = Matrix4x4.Scale(new Vector3(Scale, Scale, 1f));
+        if (Font != null) GUI.skin.font = Font;
+    }
 
     // ワールド座標 → 基準座標の GUI 位置（左上原点）
     public static Vector2 WorldToGui(Camera cam, Vector3 world)
