@@ -352,75 +352,84 @@ public class PeeController : MonoBehaviour
             var old = GUI.color;
             GUI.color = new Color(0f, 0f, 0f, 0.35f);              // 落ち影
             GUI.DrawTexture(new Rect(rect.x - 3, rect.y + 2, PieSize + 6, PieSize + 6), pieFull);
-            GUI.color = Ui.Border;                                  // オレンジのふち
+            GUI.color = Wa.Wood;                                    // 木のふち
             GUI.DrawTexture(new Rect(rect.x - 4, rect.y - 4, PieSize + 8, PieSize + 8), pieFull);
-            GUI.color = Ui.Panel;                                   // こげ茶の土台
+            GUI.color = Wa.WoodDark;                                // こげ茶の土台
             GUI.DrawTexture(rect, pieFull);
             GUI.color = new Color(Ui.Border.r, Ui.Border.g, Ui.Border.b, alpha); // 残り（オレンジ）
             GUI.DrawTexture(new Rect(rect.x + 6, rect.y + 6, PieSize - 12, PieSize - 12), pieTex);
             GUI.color = old;
         }
-        Ui.Text(rect, "我慢", 24, Ui.Cream, TextAnchor.MiddleCenter, 2f);
+        Ui.Text(rect, "我慢", 24, Wa.Washi, TextAnchor.MiddleCenter, 2f);
         Ui.Text(new Rect(gx - 40, gy + PieSize + 4, PieSize + 80, 36), label, 24, Ui.Border, TextAnchor.MiddleCenter, 2f);
     }
 
     // ---- タイトル画面 ----
     void DrawTitle(float sw, float sh)
     {
-        Ui.Dim(0.45f);
+        Ui.Dim(0.35f);
 
-        // ロゴ（ゆらゆら）
-        float bob = Mathf.Sin(Time.time * 2f) * 6f;
-        Ui.Outlined(new Rect(0, 40 + bob, sw, 140), "おしっぴー", 116, Ui.Beer, Ui.Cream, TextAnchor.MiddleCenter, 5f);
-        Ui.Text(new Rect(0, 178, sw, 44), "ジョッキにビールを注げ！ 3レーンのベルトコンベア", 28, Ui.Cream, TextAnchor.MiddleCenter);
+        // 木の看板に「おしっぴー」（少しゆれる）
+        float bob = Mathf.Sin(Time.time * 2f) * 3f;
+        var sign = new Rect(sw / 2 - 330, 26 + bob, 660, 156);
+        Wa.WoodBoard(sign);
+        Ui.Outlined(new Rect(sign.x, sign.y + 6, sign.width, 112), "おしっぴー", 100, Ui.Beer, Wa.WoodDark, TextAnchor.MiddleCenter, 4f);
+        Ui.Text(new Rect(sign.x, sign.y + 112, sign.width, 34), "〜 生ビール 注ぎ放題 〜", 22, Wa.Washi, TextAnchor.MiddleCenter, 2f);
 
         float gap = 30f;
         float panelW = Mathf.Min(560f, (sw - gap * 3) / 2f);
-        float top = 250f, panelH = 330f;
+        float top = 212f, panelH = 372f;
 
-        // あそびかた
+        // 和紙の「本日のおすすめ」（操作説明）
         var how = new Rect(sw / 2 - gap / 2 - panelW, top, panelW, panelH);
-        Ui.Box(how);
-        Ui.Text(new Rect(how.x + 28, how.y + 16, how.width - 56, 44), "あそびかた", 32, Ui.Beer);
-        string[] lines =
+        Wa.Paper(how);
+        Ui.Text(new Rect(how.x + 28, how.y + 18, how.width - 56, 44), "本日のおすすめ", 32, Wa.Red, TextAnchor.MiddleLeft, 0f);
+        Ui.Round(new Rect(how.x + 28, how.y + 64, how.width - 56, 2), new Color(Wa.Red.r, Wa.Red.g, Wa.Red.b, 0.6f));
+        string[,] items =
         {
-            "マウスで狙う（上下で奥のレーン）",
-            "左クリック長押しで踏ん張る（遠くへ）",
-            "スペース長押しで我慢（最大1秒）",
-            "終わりかけは右クリック連打で振る",
-            "ジョッキを9割まで満たせば成功！",
-            $"成功1個 {successPoint}点 ＋ 命中率1% {ratePoint}点",
+            { "狙い撃ち（マウス）", "上下で奥へ" },
+            { "踏ん張り（左クリック長押し）", "遠くへ" },
+            { "我慢（スペース長押し）", "最大1秒" },
+            { "振り（右クリック連打）", "終わりかけに" },
+            { "一杯（9割で成功）", $"{successPoint:N0}点" },
+            { "命中率 1%", $"{ratePoint}点" },
         };
-        for (int i = 0; i < lines.Length; i++)
-            Ui.Text(new Rect(how.x + 28, how.y + 70 + i * 40, how.width - 56, 38), "・" + lines[i], 23, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        var dot = new Color(Wa.Ink.r, Wa.Ink.g, Wa.Ink.b, 0.45f);
+        for (int i = 0; i < items.GetLength(0); i++)
+            Wa.PriceRow(new Rect(how.x + 28, how.y + 80 + i * 46, how.width - 56, 40),
+                        items[i, 0], items[i, 1], 22, Wa.Ink, Wa.InkOrange, dot);
 
-        // 本日のランキング
-        var rank = new Rect(sw / 2 + gap / 2, top, panelW, panelH);
-        DrawRankingPanel(rank, -1);
+        // 黒板の「本日のランキング」
+        DrawRankingBoard(new Rect(sw / 2 + gap / 2, top, panelW, panelH), -1);
 
-        // スタート
+        // 木札の「開店！」
+        var start = new Rect(sw / 2 - 260, 610, 520, 72);
+        Wa.WoodBoard(start, false);
         var c = Ui.Beer; c.a = Ui.Blink();
-        Ui.Text(new Rect(0, 610, sw, 60), "クリック または スペースでスタート", 36, c, TextAnchor.MiddleCenter);
+        Ui.Text(start, "クリック または スペースで開店！", 30, c, TextAnchor.MiddleCenter);
     }
 
-    // 本日のランキングのパネル（highlight 番目を強調）
-    void DrawRankingPanel(Rect r, int highlight)
+    // 黒板にチョークで書いたランキング（highlight 番目に黄色の下線）
+    void DrawRankingBoard(Rect r, int highlight)
     {
-        Ui.Box(r);
-        Ui.Text(new Rect(r.x + 28, r.y + 16, r.width - 56, 44), "本日のランキング", 32, Ui.Beer);
+        Wa.Blackboard(r);
+        Wa.Chalk(new Rect(r.x + 30, r.y + 22, r.width - 60, 48), "本日のランキング", 32, Wa.Chalk, TextAnchor.MiddleLeft, -1.5f);
+        Ui.Round(new Rect(r.x + 30, r.y + 72, r.width - 60, 2), new Color(Wa.Chalk.r, Wa.Chalk.g, Wa.Chalk.b, 0.4f));
         if (ranking.Count == 0)
         {
-            Ui.Text(new Rect(r.x + 28, r.y + 80, r.width - 56, 40), "まだ記録がありません", 24, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+            Wa.Chalk(new Rect(r.x + 30, r.y + 90, r.width - 60, 40), "まだ記録なし", 24, Wa.Chalk, TextAnchor.MiddleLeft, 1f);
             return;
         }
-        float rowH = Mathf.Min(48f, (r.height - 90f) / Mathf.Max(1, rankingSize));
+        float rowH = Mathf.Min(54f, (r.height - 110f) / Mathf.Max(1, rankingSize));
         for (int i = 0; i < ranking.Count; i++)
         {
-            var row = new Rect(r.x + 18, r.y + 72 + i * rowH, r.width - 36, rowH - 6);
-            if (i == highlight) Ui.Round(row, new Color(Ui.Border.r, Ui.Border.g, Ui.Border.b, 0.55f));
-            Color col = i == 0 ? Ui.Beer : Ui.Cream;
-            Ui.Text(new Rect(row.x + 12, row.y, 90, row.height), $"{i + 1}位", 26, col);
-            Ui.Text(new Rect(row.x, row.y, row.width - 14, row.height), $"{ranking[i]:N0} 点", 28, col, TextAnchor.MiddleRight);
+            var row = new Rect(r.x + 30, r.y + 86 + i * rowH, r.width - 60, rowH - 6);
+            float ang = (i % 2 == 0) ? -1f : 0.8f;
+            Color col = i == 0 ? Ui.Beer : Wa.Chalk;
+            Wa.Chalk(new Rect(row.x, row.y, 100, row.height), $"{i + 1}位", 26, col, TextAnchor.MiddleLeft, ang);
+            Wa.Chalk(new Rect(row.x, row.y, row.width, row.height), $"{ranking[i]:N0} 点", 28, col, TextAnchor.MiddleRight, ang);
+            if (i == highlight)
+                Ui.Round(new Rect(row.x - 4, row.yMax - 4, row.width + 8, 4), new Color(Ui.Beer.r, Ui.Beer.g, Ui.Beer.b, 0.85f));
         }
     }
 
@@ -465,9 +474,11 @@ public class PeeController : MonoBehaviour
         int n = Mathf.CeilToInt(countdown);
         float frac = countdown - Mathf.Floor(countdown);   // 1→0 へ減る
         var m = Ui.BeginScale(new Vector2(sw / 2, 250), 1f + 0.5f * frac * frac);
-        Ui.Outlined(new Rect(0, 160, sw, 180), n.ToString(), 160, Ui.Beer, Ui.Cream, TextAnchor.MiddleCenter, 5f);
+        Ui.Outlined(new Rect(0, 160, sw, 180), n.ToString(), 160, Ui.Beer, Wa.WoodDark, TextAnchor.MiddleCenter, 5f);
         Ui.EndScale(m);
-        Ui.Text(new Rect(0, 360, sw, 50), "ジョッキを9割まで満たせ！", 34, Ui.Cream, TextAnchor.MiddleCenter);
+        var tag = new Rect(sw / 2 - 230, 352, 460, 60);
+        Wa.WoodBoard(tag, false);
+        Ui.Text(tag, "ジョッキを9割まで満たせ！", 28, Wa.Washi, TextAnchor.MiddleCenter);
     }
 
     // ---- プレイ中の HUD ----
@@ -479,13 +490,13 @@ public class PeeController : MonoBehaviour
         if (Succeeded > lastSucceeded) { lastSucceeded = Succeeded; bumpTime = Time.time; }
         float bt = Time.time - bumpTime;
 
-        // 左上：スコア（成功すると跳ねて「+1000」が浮かぶ）
+        // 左上：木札の「お会計」（成功すると跳ねて「+1,000」が浮かぶ）
         var sp = new Rect(20, 16, 320, 104);
-        Ui.Box(sp);
-        Ui.Text(new Rect(sp.x + 22, sp.y + 8, 200, 30), "SCORE", 20, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        Wa.WoodBoard(sp);
+        Ui.Text(new Rect(sp.x + 28, sp.y + 8, 200, 30), "お会計", 20, Wa.Washi, TextAnchor.MiddleLeft, 2f);
         float s = bt < 0.35f ? 1f + 0.3f * Mathf.Sin(bt / 0.35f * Mathf.PI) : 1f;
         var m = Ui.BeginScale(new Vector2(sp.x + 110, sp.y + 70), s);
-        Ui.Text(new Rect(sp.x + 22, sp.y + 34, sp.width - 44, 64), $"{CalcScore():N0}", 54, Ui.Beer);
+        Ui.Text(new Rect(sp.x + 28, sp.y + 34, sp.width - 56, 64), $"{CalcScore():N0}点", 50, Ui.Beer);
         Ui.EndScale(m);
         if (bt < 1f)
         {
@@ -493,86 +504,93 @@ public class PeeController : MonoBehaviour
             Ui.Text(new Rect(sp.xMax + 14, sp.y + 30 - bt * 30f, 200, 50), $"+{successPoint:N0}", 36, g);
         }
 
-        // 右上：成功・命中率・残量
-        var st = new Rect(sw - 360, 16, 340, 160);
-        Ui.Box(st);
+        // 右上：和紙の値段表（成功・命中率・残量）
+        var st = new Rect(sw - 360, 16, 340, 164);
+        Wa.Paper(st);
         float lx = st.x + 24, rw = st.width - 48;
-        Ui.Text(new Rect(lx, st.y + 12, rw, 44), "成功", 24, Ui.Cream, TextAnchor.MiddleLeft, 2f);
-        Ui.Text(new Rect(lx, st.y + 10, rw, 44), $"{Succeeded} / {Finished}", 34, Ui.Beer, TextAnchor.MiddleRight);
-        Ui.Text(new Rect(lx, st.y + 58, rw, 44), "命中率", 24, Ui.Cream, TextAnchor.MiddleLeft, 2f);
-        Ui.Text(new Rect(lx, st.y + 56, rw, 44), $"{Rate():F1}%", 34, Ui.Beer, TextAnchor.MiddleRight);
-        Ui.Text(new Rect(lx, st.y + 104, rw, 44), "残量", 24, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        var dot = new Color(Wa.Ink.r, Wa.Ink.g, Wa.Ink.b, 0.45f);
+        Wa.PriceRow(new Rect(lx, st.y + 12, rw, 44), "成功", $"{Succeeded} / {Finished} 杯", 26, Wa.Ink, Wa.InkOrange, dot);
+        Wa.PriceRow(new Rect(lx, st.y + 58, rw, 44), "命中率", $"{Rate():F1}%", 26, Wa.Ink, Wa.InkOrange, dot);
+        Ui.Text(new Rect(lx, st.y + 106, rw, 44), "残量", 26, Wa.Ink, TextAnchor.MiddleLeft, 0f);
         float tankRatio = Mathf.Max(0f, remaining) / tank;
         Color barCol = Ui.Beer;
         if (remaining < weakThreshold) { barCol = Ui.Alert; barCol.a = Ui.Blink(8f); }
-        Ui.Bar(new Rect(lx + 80, st.y + 112, rw - 80, 28), tankRatio, barCol);
+        Ui.Bar(new Rect(lx + 80, st.y + 114, rw - 80, 28), tankRatio, barCol);
     }
 
     // ---- リザルト ----
     void DrawResult(float sw)
     {
-        Ui.Dim(0.5f);
+        Ui.Dim(0.45f);
         float t = Time.time - resultTime;
+        float stampT = t - 1.2f;                       // 判子を押す時刻からの経過
 
         float mainW = 640f, rankW = 400f, gap = 30f;
         float x0 = sw / 2 - (mainW + gap + rankW) / 2;
-        var main = new Rect(x0, 50, mainW, 530);
-        Ui.Box(main);
-        Ui.Text(new Rect(main.x, main.y + 12, main.width, 36), "RESULT", 26, Ui.Border, TextAnchor.MiddleCenter, 2f);
 
-        // ランク（点数のカウントアップのあとにポンと出る）
-        float sr = SuccessRate();
-        string rank = Rank(sr);
-        Ui.Text(new Rect(main.x + 30, main.y + 56, 200, 36), "ランク", 26, Ui.Cream, TextAnchor.MiddleCenter, 2f);
-        float rt = t - 1.2f;
-        if (rt >= 0f)
+        // 判子を押した瞬間に伝票が少しゆれる
+        Vector2 shake = Vector2.zero;
+        if (stampT >= 0f && stampT < 0.25f)
         {
-            Color rc = rank == "S" ? Ui.Beer : rank == "A" ? Ui.Border : rank == "B" ? Ui.Cream : new Color(0.75f, 0.7f, 0.65f);
-            float rs = 1f + 0.8f * Mathf.Max(0f, 1f - rt / 0.25f);
-            var m = Ui.BeginScale(new Vector2(main.x + 130, main.y + 170), rs);
-            Ui.Outlined(new Rect(main.x + 30, main.y + 90, 200, 160), rank, 150, rc, Ui.Shadow, TextAnchor.MiddleCenter, 4f);
-            Ui.EndScale(m);
+            float a = 5f * (1f - stampT / 0.25f);
+            shake = new Vector2(Mathf.Sin(stampT * 90f) * a, Mathf.Cos(stampT * 70f) * a);
         }
+        var main = new Rect(x0 + shake.x, 36 + shake.y, mainW, 548);
+        Wa.Paper(main);
 
-        // 点数（カウントアップ）
+        // 見出し「御会計」と二重線
+        Ui.Text(new Rect(main.x, main.y + 16, main.width, 56), "御 会 計", 40, Wa.Ink, TextAnchor.MiddleCenter, 0f);
+        var line = new Color(Wa.Ink.r, Wa.Ink.g, Wa.Ink.b, 0.7f);
+        Ui.Round(new Rect(main.x + 40, main.y + 78, main.width - 80, 2), line);
+        Ui.Round(new Rect(main.x + 40, main.y + 84, main.width - 80, 2), line);
+
+        // 値段表（内訳）
+        var dot = new Color(Wa.Ink.r, Wa.Ink.g, Wa.Ink.b, 0.45f);
+        float bx = main.x + 44, bw = main.width - 88;
+        Wa.PriceRow(new Rect(bx, main.y + 104, bw, 46), $"成功ジョッキ ×{Succeeded}", $"{SuccessScore:N0}点", 28, Wa.Ink, Wa.InkOrange, dot);
+        Wa.PriceRow(new Rect(bx, main.y + 154, bw, 46), $"命中率 {Rate():F1}%", $"{RateScore:N0}点", 28, Wa.Ink, Wa.InkOrange, dot);
+        Ui.Round(new Rect(bx, main.y + 212, bw, 2), line);
+
+        // 合計（カウントアップ）
         float k = Mathf.Clamp01(t / 1.2f);
         int shown = Mathf.RoundToInt(finalScore * (1f - (1f - k) * (1f - k)));
-        Ui.Text(new Rect(main.x + 250, main.y + 70, 360, 36), "SCORE", 24, Ui.Cream, TextAnchor.MiddleRight, 2f);
-        Ui.Text(new Rect(main.x + 230, main.y + 104, 380, 90), $"{shown:N0}", 72, Ui.Beer, TextAnchor.MiddleRight, 4f);
-        if (myRank == 0 && rt >= 0f)
+        Wa.PriceRow(new Rect(bx, main.y + 226, bw, 64), "合計", $"{shown:N0}点", 42, Wa.Ink, Wa.InkOrange, dot);
+
+        var dim = new Color(Wa.Ink.r, Wa.Ink.g, Wa.Ink.b, 0.75f);
+        float sr = SuccessRate();
+        Ui.Text(new Rect(bx, main.y + 306, bw, 32), $"あふれ {overflowCount}滴　あなたの足元に {outCount}滴", 20, dim, TextAnchor.MiddleLeft, 0f);
+        Ui.Text(new Rect(bx, main.y + 346, bw, 30), $"判定は成功率（今回 {Succeeded}/{Finished}杯 ＝ {sr:F0}%）", 19, dim, TextAnchor.MiddleLeft, 0f);
+        Ui.Text(new Rect(bx, main.y + 376, bw, 30), "S 90%以上　A 70%以上　B 50%以上", 19, dim, TextAnchor.MiddleLeft, 0f);
+
+        // 新記録
+        if (myRank == 0 && stampT >= 0f)
         {
-            var c = Ui.Border; c.a = Ui.Blink(5f);
-            Ui.Text(new Rect(main.x + 230, main.y + 196, 380, 44), "★ 本日の新記録！ ★", 30, c, TextAnchor.MiddleRight);
+            var c = Wa.Red; c.a = Ui.Blink(5f);
+            Ui.Text(new Rect(bx, main.y + 440, 300, 56), "本日一番！", 40, c, TextAnchor.MiddleLeft, 0f);
         }
 
-        // 内訳
-        Ui.Round(new Rect(main.x + 30, main.y + 268, main.width - 60, 3), new Color(Ui.Border.r, Ui.Border.g, Ui.Border.b, 0.6f));
-        float bx = main.x + 40, bw = main.width - 80;
-        Ui.Text(new Rect(bx, main.y + 286, bw, 44), $"成功ジョッキ {Succeeded}個 × {successPoint:N0}点", 26, Ui.Cream, TextAnchor.MiddleLeft, 2f);
-        Ui.Text(new Rect(bx, main.y + 286, bw, 44), $"{SuccessScore:N0} 点", 30, Ui.Beer, TextAnchor.MiddleRight);
-        Ui.Text(new Rect(bx, main.y + 334, bw, 44), $"命中率 {Rate():F1}% × {ratePoint}点", 26, Ui.Cream, TextAnchor.MiddleLeft, 2f);
-        Ui.Text(new Rect(bx, main.y + 334, bw, 44), $"{RateScore:N0} 点", 30, Ui.Beer, TextAnchor.MiddleRight);
+        // 赤い判子がポンと押される（大きく出て、縮みながら斜めに着地）
+        if (stampT >= 0f)
+        {
+            float sc = stampT < 0.12f ? Mathf.Lerp(2.4f, 0.92f, stampT / 0.12f)
+                     : stampT < 0.22f ? Mathf.Lerp(0.92f, 1f, (stampT - 0.12f) / 0.1f) : 1f;
+            float al = Mathf.Clamp01(stampT / 0.08f);
+            Wa.Hanko(new Vector2(main.xMax - 130, main.y + 440), 170f, Rank(sr), sc, -12f, al);
+        }
 
-        var dim = Ui.Cream; dim.a = 0.8f;
-        Ui.Text(new Rect(main.x, main.y + 396, main.width, 36),
-            $"あふれ {overflowCount}滴　あなたの足元に {outCount}滴", 22, dim, TextAnchor.MiddleCenter, 2f);
-        Ui.Text(new Rect(main.x, main.y + 450, main.width, 56),
-            $"ランクは成功率で決まる（今回 {Succeeded}/{Finished}個 = {sr:F0}%）\nS 90%以上　A 70%以上　B 50%以上", 19, dim, TextAnchor.MiddleCenter, 2f);
+        // 黒板のランキング（自分の順位に黄色の下線）
+        DrawRankingBoard(new Rect(x0 + mainW + gap, 36, rankW, 548), myRank);
 
-        // 本日のランキング
-        DrawRankingPanel(new Rect(main.xMax + gap, 50, rankW, 530), myRank);
-
-        // ボタン（キーでもクリックでも）
-        if (PillButton(new Rect(sw / 2 - 260, 610, 240, 64), "R：もう一度")) Restart(true);
-        if (PillButton(new Rect(sw / 2 + 20, 610, 240, 64), "T：タイトルへ")) Restart(false);
+        // 木札のボタン（キーでもクリックでも）
+        if (TagButton(new Rect(sw / 2 - 260, 606, 240, 64), "R：もう一度")) Restart(true);
+        if (TagButton(new Rect(sw / 2 + 20, 606, 240, 64), "T：タイトルへ")) Restart(false);
     }
 
-    bool PillButton(Rect r, string label)
+    bool TagButton(Rect r, string label)
     {
         bool hover = r.Contains(Event.current.mousePosition);
-        Ui.Round(new Rect(r.x + 2, r.y + 5, r.width, r.height), new Color(0f, 0f, 0f, 0.35f));
-        Ui.Round(r, Ui.Border);
-        Ui.Round(new Rect(r.x + 3, r.y + 3, r.width - 6, r.height - 6), hover ? new Color(0.35f, 0.2f, 0.08f, 0.95f) : Ui.Panel);
+        Wa.WoodBoard(r, false);
+        if (hover) Ui.Round(new Rect(r.x + 4, r.y + 4, r.width - 8, r.height - 8), new Color(1f, 0.9f, 0.6f, 0.15f));
         Ui.Text(r, label, 30, Ui.Beer, TextAnchor.MiddleCenter);
         return GUI.Button(r, GUIContent.none, GUIStyle.none);
     }
