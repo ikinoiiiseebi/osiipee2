@@ -23,3 +23,6 @@
 *.unitypackage
 crashlytics-buildid.txt
 sysinfo.txt
+
+# WebGL ビルドの出力
+/osippee2_build/
