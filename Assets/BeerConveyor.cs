@@ -6,8 +6,10 @@ public class BeerConveyor : MonoBehaviour
     [Header("レーン（ワールド座標）")]
     public float[] laneZ = { 0.35f, 0.55f, 0.75f }; // 手前・中央・奥
     public float beltTopY = 0.45f;   // ベルト上面の高さ
-    public float startX = 1.4f;      // ジョッキが出てくる位置（右）
+    public float spawnX = 1.9f;      // ジョッキが出てくる位置（右・画面の外）
     public float endX = -1.0f;       // 判定する位置（左端）
+    public float despawnX = -1.9f;   // ジョッキが消える位置（左・画面の外）
+    public float beltHalfLength = 2.8f; // ベルトは X = ±この値 まで（画面の外まで伸ばす）
     public float laneWidth = 0.18f;
 
     [Header("ジョッキ")]
@@ -71,14 +73,14 @@ public class BeerConveyor : MonoBehaviour
 
         var go = new GameObject("BeerMug");
         go.transform.SetParent(transform, false);
-        go.transform.position = new Vector3(startX, beltTopY, laneZ[lane]);
+        go.transform.position = new Vector3(spawnX, beltTopY, laneZ[lane]);
         go.AddComponent<BeerMug>().Build(this);
     }
 
     void BuildBelt()
     {
-        float length = Mathf.Abs(startX - endX) + 0.4f;
-        float midX = (startX + endX) * 0.5f;
+        float length = beltHalfLength * 2f;
+        float midX = 0f;
         float minZ = float.MaxValue, maxZ = float.MinValue;
 
         foreach (float z in laneZ)

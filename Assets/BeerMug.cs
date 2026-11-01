@@ -46,7 +46,7 @@ public class BeerMug : MonoBehaviour
         if (conveyor == null || conveyor.Halted) return;
         transform.position += Vector3.left * (conveyor.beltSpeed * Time.deltaTime);
 
-        if (transform.position.x <= conveyor.endX)
+        if (transform.position.x <= conveyor.despawnX)
             Destroy(gameObject);
     }
 }
