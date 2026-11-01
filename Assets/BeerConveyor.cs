@@ -12,7 +12,7 @@ public class BeerConveyor : MonoBehaviour
     public float despawnX = -1.9f;   // ジョッキが消える位置（左・画面の外）
     public float beltHalfLength = 2.8f; // ベルトは X = ±この値 まで（画面の外まで伸ばす）
     public float laneWidth = 0.18f;
-    public float prewarmMinX = -0.3f;   // 開始前にここより右へジョッキを並べておく
+    public float prewarmNearestX = 0.5f; // 開始前に並べておくジョッキは、この位置より右だけ（画面の中央より右）
 
     [Header("ジョッキ")]
     public float spawnInterval = 2.3f; // 開始時の出現間隔（秒）
@@ -132,7 +132,7 @@ public class BeerConveyor : MonoBehaviour
     {
         float spacing = Spacing;
         if (spacing <= 0.01f) return;
-        for (float x = spawnX - spacing; x >= prewarmMinX; x -= spacing)
+        for (float x = spawnX - spacing; x >= prewarmNearestX; x -= spacing)
             Spawn(x);
     }
 
