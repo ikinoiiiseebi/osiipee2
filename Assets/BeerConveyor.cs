@@ -42,6 +42,11 @@ public class BeerConveyor : MonoBehaviour
     float timer;
     int lastLane = -1;
     Material baseMat;
+    Material beltMat;
+    const float BeltTile = 0.2f;   // ベルトの模様1枚分の長さ（m）
+
+    [Header("見た目")]
+    public float beltScrollSign = 1f; // ベルトの模様が逆向きに流れて見えたら -1 にする
 
     void Start()
     {
@@ -82,6 +87,14 @@ public class BeerConveyor : MonoBehaviour
 
     void Update()
     {
+        // ベルトの模様を流れる速さに合わせて動かす
+        if (!Halted && beltMat != null)
+        {
+            var o = beltMat.mainTextureOffset;
+            o.x = (o.x + beltScrollSign * beltSpeed * Time.deltaTime / BeltTile) % 1f;
+            beltMat.mainTextureOffset = o;
+        }
+
         if (!spawning) return;
         timer -= Time.deltaTime;
         if (timer <= 0f)
@@ -120,22 +133,47 @@ public class BeerConveyor : MonoBehaviour
         float midX = 0f;
         float minZ = float.MaxValue, maxZ = float.MinValue;
 
+        // 回転寿司風：ステンレスの板が流れるベルト（模様は速さに合わせてスクロール）
+        beltMat = ProcTex.Mat(new Color(0.5f, 0.5f, 0.53f), ProcTex.Belt(64),
+                              new Vector2(length / BeltTile, 1f), 0.6f);
+        var rail = ProcTex.Mat(new Color(0.85f, 0.85f, 0.88f), null, Vector2.one, 0.8f);
         foreach (float z in laneZ)
         {
             var belt = Box("Belt", new Vector3(midX, beltTopY - 0.025f, z),
                            new Vector3(length, 0.05f, laneWidth));
             if (baseMat == null) baseMat = belt.sharedMaterial;
-            belt.sharedMaterial = MakeMat(new Color(0.15f, 0.15f, 0.17f));
+            belt.sharedMaterial = beltMat;
+            // 両側のステンレスのレール（飾り。当たり判定なし）
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var r = Box("Rail", new Vector3(midX, beltTopY + 0.004f, z + side * (laneWidth / 2f - 0.005f)),
+                            new Vector3(length, 0.012f, 0.01f));
+                Destroy(r.GetComponent<Collider>());
+                r.sharedMaterial = rail;
+            }
             minZ = Mathf.Min(minZ, z);
             maxZ = Mathf.Max(maxZ, z);
         }
 
-        // 台（ベルトの下と、レーンのすき間を受ける）
+        // 台＝木の枠のカウンター（ベルトの下と、レーンのすき間を受ける）
         float frameH = beltTopY - 0.05f;
+        float depth = maxZ - minZ + laneWidth + 0.04f;
         var frame = Box("Frame", new Vector3(midX, frameH * 0.5f, (minZ + maxZ) * 0.5f),
-                        new Vector3(length, frameH, maxZ - minZ + laneWidth + 0.04f));
+                        new Vector3(length, frameH, depth));
         if (baseMat == null) baseMat = frame.sharedMaterial;
-        frame.sharedMaterial = MakeMat(new Color(0.45f, 0.45f, 0.5f));
+        frame.sharedMaterial = ProcTex.Mat(new Color(0.5f, 0.32f, 0.19f), ProcTex.Wood(256, 6, 5f),
+                                           new Vector2(length / 1.2f, 1f), 0.3f);
+
+        // カウンターの手前と奥のふち（白木。飾り。当たり判定なし）
+        var light = ProcTex.Mat(new Color(0.9f, 0.74f, 0.52f), ProcTex.Wood(128, 2, 9f),
+                                new Vector2(length / 0.8f, 1f), 0.35f);
+        foreach (float ez in new[] { minZ - laneWidth / 2f - 0.02f, maxZ + laneWidth / 2f + 0.02f })
+        {
+            var edge = Box("CounterEdge", new Vector3(midX, beltTopY - 0.02f, ez),
+                           new Vector3(length, 0.07f, 0.04f));
+            Destroy(edge.GetComponent<Collider>());
+            edge.sharedMaterial = light;
+        }
 
         // 判定ライン（左端）の目印。当たり判定なし
         var line = Box("JudgeLine", new Vector3(endX, beltTopY + 0.002f, (minZ + maxZ) * 0.5f),
