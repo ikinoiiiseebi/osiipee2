@@ -124,6 +124,20 @@ public static class Ui
         return textStyle;
     }
 
+    // マウスを重ねたとき（hover など）も同じ色で描く。
+    // これをしないと影の文字がホバー色（明るい色）になり、文字が二重に見える
+    static void SetColor(GUIStyle st, Color c)
+    {
+        st.normal.textColor = c;
+        st.hover.textColor = c;
+        st.active.textColor = c;
+        st.focused.textColor = c;
+        st.onNormal.textColor = c;
+        st.onHover.textColor = c;
+        st.onActive.textColor = c;
+        st.onFocused.textColor = c;
+    }
+
     // 影付きの文字
     public static void Text(Rect r, string s, int size, Color c,
                             TextAnchor align = TextAnchor.MiddleLeft, float shadow = 3f)
@@ -131,10 +145,10 @@ public static class Ui
         var st = TextStyle(size, align);
         if (shadow > 0f)
         {
-            st.normal.textColor = new Color(Shadow.r, Shadow.g, Shadow.b, Shadow.a * c.a);
+            SetColor(st, new Color(Shadow.r, Shadow.g, Shadow.b, Shadow.a * c.a));
             GUI.Label(new Rect(r.x + shadow * 0.6f, r.y + shadow, r.width, r.height), s, st);
         }
-        st.normal.textColor = c;
+        SetColor(st, c);
         GUI.Label(r, s, st);
     }
 
@@ -143,15 +157,15 @@ public static class Ui
                                 TextAnchor align = TextAnchor.MiddleCenter, float thick = 4f)
     {
         var st = TextStyle(size, align);
-        st.normal.textColor = new Color(Shadow.r, Shadow.g, Shadow.b, Shadow.a * c.a);
+        SetColor(st, new Color(Shadow.r, Shadow.g, Shadow.b, Shadow.a * c.a));
         GUI.Label(new Rect(r.x + thick * 1.2f, r.y + thick * 2f, r.width, r.height), s, st);
-        st.normal.textColor = new Color(outline.r, outline.g, outline.b, outline.a * c.a);
+        SetColor(st, new Color(outline.r, outline.g, outline.b, outline.a * c.a));
         for (int i = 0; i < 8; i++)
         {
             float a = i * Mathf.PI / 4f;
             GUI.Label(new Rect(r.x + Mathf.Cos(a) * thick, r.y + Mathf.Sin(a) * thick, r.width, r.height), s, st);
         }
-        st.normal.textColor = c;
+        SetColor(st, c);
         GUI.Label(r, s, st);
     }
 
