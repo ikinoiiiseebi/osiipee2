@@ -15,8 +15,12 @@ public class BeerConveyor : MonoBehaviour
     public float prewarmMinX = -0.3f;   // 開始前にここより右へジョッキを並べておく
 
     [Header("ジョッキ")]
-    public float spawnInterval = 2.3f; // 出現間隔（秒）
-    public float beltSpeed = 0.3f;     // 流れる速さ（m/秒）
+    public float spawnInterval = 2.3f; // 開始時の出現間隔（秒）
+    public float beltSpeed = 0.3f;     // 開始時の流れる速さ（m/秒）
+
+    [Header("だんだん速くなる（出現間隔は ジョッキの間の距離 が一定になるよう自動で短くなる）")]
+    public float maxBeltSpeed = 0.3f;     // 最高速度（m/秒）
+    public float speedRampSeconds = 60f;  // 開始時の速さから最高速度になるまでの秒数
     public int dropsToFill = 350;      // 満タンになる粒の数
     [Range(0f, 1f)] public float successRatio = 0.9f;
     public float mugWidth = 0.14f;
@@ -25,6 +29,12 @@ public class BeerConveyor : MonoBehaviour
     // 判定の結果（左端に着いた数と成功数）
     public int Finished { get; private set; }
     public int Succeeded { get; private set; }
+    public int Combo { get; private set; }           // 連続成功数（失敗で0）
+
+    // 今の速さ（ジョッキもベルトの模様もこの速さで動く）
+    public float CurrentSpeed { get; private set; }
+    float runTime;                                   // ベルトが動いている時間
+    float Spacing => beltSpeed * spawnInterval;      // ジョッキの間の距離（一定）
 
     // 止まっている間（カウントダウン中・リザルト中）はベルトが動かない
     public bool Halted { get; private set; } = true;
@@ -50,6 +60,7 @@ public class BeerConveyor : MonoBehaviour
 
     void Start()
     {
+        CurrentSpeed = beltSpeed;
         BuildBelt();
         Prewarm();
     }
@@ -75,24 +86,34 @@ public class BeerConveyor : MonoBehaviour
     public void Report(BeerMug mug, bool success)
     {
         Finished++;
-        if (success) Succeeded++;
+        if (success) { Succeeded++; Combo++; }
+        else Combo = 0;
+
+        string text = !success ? "失敗…" : Combo >= 2 ? $"{Combo}連続！" : "成功！";
         popups.Add(new Popup
         {
             pos = mug.transform.position + Vector3.up * (mugHeight + 0.08f),
-            text = success ? "成功！" : "失敗…",
-            color = success ? Ui.Beer : Ui.Alert,
+            text = text,
+            color = !success ? Ui.Alert : Combo >= 3 ? Ui.Border : Ui.Beer,
             time = Time.time
         });
     }
 
     void Update()
     {
+        if (Halted) return;
+
+        // だんだん速くする（speedRampSeconds かけて beltSpeed → maxBeltSpeed）
+        runTime += Time.deltaTime;
+        float k = speedRampSeconds > 0f ? Mathf.Clamp01(runTime / speedRampSeconds) : 1f;
+        CurrentSpeed = Mathf.Lerp(beltSpeed, Mathf.Max(beltSpeed, maxBeltSpeed), k);
+
         // ベルトの模様を流れる速さに合わせて動かす
-        if (!Halted && beltMat != null)
+        if (beltMat != null)
         {
             var o = beltMat.mainTextureOffset;
             // 箱の上面はテクスチャの向きが X と逆なので、マイナス方向にずらすとジョッキと同じ向きに流れる
-            o.x = (o.x - beltScrollSign * beltSpeed * Time.deltaTime / BeltTile) % 1f;
+            o.x = (o.x - beltScrollSign * CurrentSpeed * Time.deltaTime / BeltTile) % 1f;
             beltMat.mainTextureOffset = o;
         }
 
@@ -100,7 +121,8 @@ public class BeerConveyor : MonoBehaviour
         timer -= Time.deltaTime;
         if (timer <= 0f)
         {
-            timer += spawnInterval;
+            // 速くなっても間隔（距離）が一定になるよう、出現間隔を短くする
+            timer += Spacing / Mathf.Max(0.01f, CurrentSpeed);
             Spawn(spawnX);
         }
     }
@@ -108,7 +130,7 @@ public class BeerConveyor : MonoBehaviour
     // 開始時からベルトにジョッキが並んでいるようにする
     void Prewarm()
     {
-        float spacing = beltSpeed * spawnInterval;
+        float spacing = Spacing;
         if (spacing <= 0.01f) return;
         for (float x = spawnX - spacing; x >= prewarmMinX; x -= spacing)
             Spawn(x);

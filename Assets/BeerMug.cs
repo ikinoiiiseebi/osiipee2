@@ -142,7 +142,7 @@ public class BeerMug : MonoBehaviour
         }
 
         if (conveyor == null || conveyor.Halted) return;
-        transform.position += Vector3.left * (conveyor.beltSpeed * Time.deltaTime);
+        transform.position += Vector3.left * (conveyor.CurrentSpeed * Time.deltaTime);
 
         // 9割に届かないまま左端のラインを越えたら失敗
         if (!judged && transform.position.x <= conveyor.endX)

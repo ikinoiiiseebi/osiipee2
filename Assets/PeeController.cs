@@ -17,14 +17,16 @@ public class PeeController : MonoBehaviour
     [Header("勢い")]
     public float normalSpeed = 2.5f;
     public float pushSpeed = 4f;     // 左クリック（踏ん張り）
-    public float weakSpeed = 0.8f;   // 終わりかけの弱い勢い
 
     [Header("タンク")]
     public float tank = 100f;
     public float normalDrain = 4f;   // 1秒あたりの減り
     public float pushDrain = 7f;     // 踏ん張り中の減り
-    public float weakThreshold = 15f;// 残りがこれ以下で勢いが落ちる
-    public float shakeBoostTime = 0.15f; // 右クリック1回で勢いが戻る時間
+    public float lowWarning = 20f;   // 残りがこれ以下で残量バーが赤く点滅（警告だけ）
+
+    [Header("コンボで回復（おかわり）")]
+    public int comboToRecover = 3;          // この連続数以上の成功で回復
+    public float recoverPerSuccess = 3.5f;  // 1回の回復量
 
     [Header("我慢（スペース長押し）")]
     public float holdMax = 1f;       // 連続で我慢できる秒数
@@ -54,7 +56,10 @@ public class PeeController : MonoBehaviour
     State state = State.Title;
     static bool skipTitle;   // リザルトで R（もう一度）を押したときはタイトルを飛ばす
     float resultTime;
-    float countdown = 3f, elapsed, remaining, lastShake = -10f, endTimer;
+    float countdown = 3f, elapsed, remaining, endTimer;
+    int seenSucceeded;               // 回復の判定で数え終わった成功数
+    float recoverTime = -10f;        // 最後に回復した時刻（演出用）
+    float lastRecover;
     bool holding;
     float holdUsed, cooldownLeft;
     int finalScore, myRank = -1;
@@ -125,22 +130,13 @@ public class PeeController : MonoBehaviour
 
             case State.Peeing:
                 elapsed += dt;
+                CheckComboRecover();
                 if (UpdateHold(kb, dt)) break;   // 我慢中は発射もタンクの減りも止まる
 
                 bool push = mouse.leftButton.isPressed;
-                if (mouse.rightButton.wasPressedThisFrame) lastShake = Time.time;
-
                 remaining -= (push ? pushDrain : normalDrain) * dt;
-                float speed = push ? pushSpeed : normalSpeed;
-
-                if (remaining < weakThreshold)
-                {
-                    bool shaking = Time.time - lastShake < shakeBoostTime;
-                    float t = Mathf.Clamp01(remaining / weakThreshold);
-                    speed = shaking ? normalSpeed : Mathf.Lerp(weakSpeed, speed, t);
-                }
                 var main = ps.main;
-                main.startSpeed = speed;
+                main.startSpeed = push ? pushSpeed : normalSpeed;
 
                 if (remaining <= 0f)
                 {
@@ -169,6 +165,18 @@ public class PeeController : MonoBehaviour
                 CheckClearRanking(kb);
                 break;
         }
+    }
+
+    // 新しく成功したジョッキがあり、そのときのコンボが comboToRecover 以上なら残量を回復（おかわり）
+    void CheckComboRecover()
+    {
+        if (conveyor == null || Succeeded <= seenSucceeded) return;
+        seenSucceeded = Succeeded;
+        if (conveyor.Combo < comboToRecover) return;
+        float before = remaining;
+        remaining = Mathf.Min(tank, remaining + recoverPerSuccess);
+        lastRecover = remaining - before;
+        if (lastRecover > 0f) recoverTime = Time.time;
     }
 
     void Restart(bool playAgain)
@@ -390,7 +398,7 @@ public class PeeController : MonoBehaviour
             { "狙い撃ち（マウス）", "上下で奥へ" },
             { "踏ん張り（左クリック長押し）", "遠くへ" },
             { "我慢（スペース長押し）", "最大1秒" },
-            { "振り（右クリック連打）", "終わりかけに" },
+            { $"{comboToRecover}連続から おかわり", "残量回復" },
             { "一杯（9割で成功）", $"{successPoint:N0}点" },
             { "命中率 1%", $"{ratePoint}点" },
         };
@@ -453,13 +461,6 @@ public class PeeController : MonoBehaviour
             case State.Finishing:
                 DrawHud(sw);
                 if (state == State.Peeing) DrawHoldGauge();
-                if (state == State.Peeing && remaining < weakThreshold)
-                {
-                    var c = Ui.Alert; c.a = Ui.Blink(8f);
-                    var m = Ui.BeginScale(new Vector2(sw / 2, 560), 1f + 0.06f * Mathf.Sin(Time.time * 16f));
-                    Ui.Text(new Rect(0, 530, sw, 60), "右クリック連打で振れ！", 44, c, TextAnchor.MiddleCenter);
-                    Ui.EndScale(m);
-                }
                 break;
 
             case State.Result:
@@ -504,6 +505,19 @@ public class PeeController : MonoBehaviour
             Ui.Text(new Rect(sp.xMax + 14, sp.y + 30 - bt * 30f, 200, 50), $"+{successPoint:N0}", 36, g);
         }
 
+        // お会計の下：連続数の木札（2連続から表示、回復が始まる連続数以上で黄色くポンと跳ねる）
+        int combo = conveyor != null ? conveyor.Combo : 0;
+        if (combo >= 2)
+        {
+            bool hot = combo >= comboToRecover;
+            var tag = new Rect(20, 132, 250, 54);
+            float cs = hot && bt < 0.3f ? 1f + 0.35f * Mathf.Sin(bt / 0.3f * Mathf.PI) : 1f;
+            var cm = Ui.BeginScale(tag.center, cs);
+            Wa.WoodBoard(tag, false);
+            Ui.Text(tag, hot ? $"{combo}連続！ おかわり中" : $"{combo}連続", 26, hot ? Ui.Beer : Wa.Washi, TextAnchor.MiddleCenter);
+            Ui.EndScale(cm);
+        }
+
         // 右上：和紙の値段表（成功・命中率・残量）
         var st = new Rect(sw - 360, 16, 340, 164);
         Wa.Paper(st);
@@ -514,8 +528,23 @@ public class PeeController : MonoBehaviour
         Ui.Text(new Rect(lx, st.y + 106, rw, 44), "残量", 26, Wa.Ink, TextAnchor.MiddleLeft, 0f);
         float tankRatio = Mathf.Max(0f, remaining) / tank;
         Color barCol = Ui.Beer;
-        if (remaining < weakThreshold) { barCol = Ui.Alert; barCol.a = Ui.Blink(8f); }
-        Ui.Bar(new Rect(lx + 80, st.y + 114, rw - 80, 28), tankRatio, barCol);
+        if (remaining < lowWarning) { barCol = Ui.Alert; barCol.a = Ui.Blink(8f); }
+        var bar = new Rect(lx + 80, st.y + 114, rw - 80, 28);
+
+        // 回復したとき：バーが光り、「おかわり！ +3.5」が浮かぶ
+        float rt = Time.time - recoverTime;
+        if (rt < 0.6f)
+        {
+            var glow = Ui.Beer; glow.a = 0.7f * (1f - rt / 0.6f);
+            Ui.Round(new Rect(bar.x - 6, bar.y - 6, bar.width + 12, bar.height + 12), glow);
+        }
+        Ui.Bar(bar, tankRatio, barCol);
+        if (rt < 1.2f)
+        {
+            var c = Ui.Beer; c.a = 1f - rt / 1.2f;
+            Ui.Text(new Rect(st.x, st.yMax + 6 - rt * 24f, st.width - 10, 44),
+                    $"おかわり！ 残量 +{lastRecover:0.#}", 28, c, TextAnchor.MiddleRight);
+        }
     }
 
     // ---- リザルト ----
