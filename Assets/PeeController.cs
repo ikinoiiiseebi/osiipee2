@@ -64,7 +64,18 @@ public class PeeController : MonoBehaviour
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ranking = LoadRanking();
         if (conveyor == null) conveyor = FindFirstObjectByType<BeerConveyor>();
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // スペースなどのキーをゲームが受け取り、ページがスクロールしないようにする
+        WebGLInput.captureAllKeyboardInput = true;
+        DisableContextMenu();   // 右クリックメニューを出さない
+#endif
     }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [System.Runtime.InteropServices.DllImport("__Internal")]
+    static extern void DisableContextMenu();
+#endif
 
     void Update()
     {
@@ -135,7 +146,8 @@ public class PeeController : MonoBehaviour
             case State.Result:
                 if (kb.rKey.wasPressedThisFrame)
                     SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-                if (kb.f12Key.wasPressedThisFrame)   // 本日のランキングを消去（テスト用）
+                // Shift + Delete で本日のランキングを消去（F12はブラウザの開発者ツールと重なるため）
+                if (kb.shiftKey.isPressed && kb.deleteKey.wasPressedThisFrame)
                 {
                     PlayerPrefs.DeleteKey(RankingKey);
                     ranking.Clear();
@@ -299,9 +311,9 @@ public class PeeController : MonoBehaviour
         if (key != pieKey) { pieKey = key; FillPie(pieTex, ratio); }
 
         // 発射位置の右隣（画面の外なら下端に寄せる）
-        Vector3 sp = cam.WorldToScreenPoint(transform.position);
-        float gx = sp.x + 40f;
-        float gy = Mathf.Clamp(Screen.height - sp.y - PieSize * 0.5f, 10f, Screen.height - PieSize - 50f);
+        Vector2 gp = GuiScale.WorldToGui(cam, transform.position);
+        float gx = gp.x + 40f;
+        float gy = Mathf.Clamp(gp.y - PieSize * 0.5f, 10f, GuiScale.Height - PieSize - 50f);
         var rect = new Rect(gx, gy, PieSize, PieSize);
 
         var old = GUI.color;
@@ -318,12 +330,16 @@ public class PeeController : MonoBehaviour
 
     void OnGUI()
     {
+        // 1280x720 を基準に、画面の高さに合わせて文字も位置もまとめて拡大縮小する
+        GuiScale.Apply();
+        float sw = GuiScale.Width, sh = GuiScale.Height;
+
         var big = new GUIStyle(GUI.skin.label) { fontSize = 80, alignment = TextAnchor.MiddleCenter };
         var mid = new GUIStyle(GUI.skin.label) { fontSize = 36, alignment = TextAnchor.MiddleCenter };
         var hud = new GUIStyle(GUI.skin.label) { fontSize = 32 };
         var board = new GUIStyle(GUI.skin.box) { fontSize = 30, alignment = TextAnchor.UpperLeft, padding = new RectOffset(20, 20, 16, 16) };
-        Rect center = new Rect(0, Screen.height * 0.2f, Screen.width, 120);
-        Rect below = new Rect(0, Screen.height * 0.2f + 120, Screen.width, 460);
+        Rect center = new Rect(0, sh * 0.2f, sw, 120);
+        Rect below = new Rect(0, sh * 0.2f + 120, sw, 460);
         var small = new GUIStyle(mid) { fontSize = 26 };
 
         switch (state)
@@ -357,14 +373,34 @@ public class PeeController : MonoBehaviour
                     $"成功ジョッキ {Succeeded}個 × {successPoint}点 ＝ {SuccessScore}点\n" +
                     $"命中率 {r:F1}% × {ratePoint}点 ＝ {RateScore}点\n" +
                     $"あふれ {overflowCount}滴　あなたの足元に {outCount} 滴\n\nRでもう一度", mid);
-                GUI.Label(new Rect(0, Screen.height - 60, Screen.width, 40),
+                GUI.Label(new Rect(0, sh - 60, sw, 40),
                     $"ランクは成功率で決まる（今回 {Succeeded}/{Finished}個 = {sr:F0}%）　S 90%以上 / A 70%以上 / B 50%以上", small);
 
                 string list = "本日のランキング\n";
                 for (int i = 0; i < ranking.Count; i++)
                     list += $"{(i == myRank ? "▶" : "　")}{i + 1}位　{ranking[i]}点\n";
-                GUI.Box(new Rect(Screen.width - 380, 20, 360, 60 + 44 * rankingSize), list, board);
+                GUI.Box(new Rect(sw - 380, 20, 360, 60 + 44 * rankingSize), list, board);
                 break;
         }
+    }
+}
+
+// OnGUI を 1280x720 基準で描き、実際の画面の高さに合わせて拡大縮小する
+public static class GuiScale
+{
+    public const float RefHeight = 720f;
+
+    public static float Scale => Mathf.Max(0.01f, Screen.height / RefHeight);
+    public static float Width => Screen.width / Scale;   // 基準座標での画面の幅
+    public static float Height => RefHeight;
+
+    public static void Apply() =>
+        GUI.matrix = Matrix4x4.Scale(new Vector3(Scale, Scale, 1f));
+
+    // ワールド座標 → 基準座標の GUI 位置（左上原点）
+    public static Vector2 WorldToGui(Camera cam, Vector3 world)
+    {
+        Vector3 sp = cam.WorldToScreenPoint(world);
+        return new Vector2(sp.x / Scale, (Screen.height - sp.y) / Scale);
     }
 }

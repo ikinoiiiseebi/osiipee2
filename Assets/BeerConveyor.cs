@@ -177,6 +177,7 @@ public class BeerConveyor : MonoBehaviour
     {
         var cam = Camera.main;
         if (cam == null) return;
+        GuiScale.Apply();
         var style = new GUIStyle(GUI.skin.label)
         {
             fontSize = 44,
@@ -190,11 +191,11 @@ public class BeerConveyor : MonoBehaviour
             float age = Time.time - p.time;
             if (age > PopupTime) { popups.RemoveAt(i); continue; }
 
-            Vector3 sp = cam.WorldToScreenPoint(p.pos);
-            if (sp.z <= 0f) continue;
-            float y = Screen.height - sp.y - age * 60f;   // 少しずつ上へ
+            if (cam.WorldToScreenPoint(p.pos).z <= 0f) continue;
+            Vector2 gp = GuiScale.WorldToGui(cam, p.pos);
+            float y = gp.y - age * 60f;   // 少しずつ上へ
             style.normal.textColor = new Color(p.color.r, p.color.g, p.color.b, 1f - age / PopupTime);
-            GUI.Label(new Rect(sp.x - 150, y - 30, 300, 60), p.text, style);
+            GUI.Label(new Rect(gp.x - 150, y - 30, 300, 60), p.text, style);
         }
     }
 }
