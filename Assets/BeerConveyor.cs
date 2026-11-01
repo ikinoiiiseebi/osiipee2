@@ -32,8 +32,7 @@ public class BeerConveyor : MonoBehaviour
     // ジョッキが使う共有マテリアル
     public Material GlassMat { get; private set; }
     public Material BeerMat { get; private set; }
-    public Material SuccessMat { get; private set; }
-    public Material FailMat { get; private set; }
+    public Material[] ConfettiMats { get; private set; }
 
     struct Popup { public Vector3 pos; public string text; public Color color; public float time; }
     readonly List<Popup> popups = new List<Popup>();
@@ -146,8 +145,15 @@ public class BeerConveyor : MonoBehaviour
 
         GlassMat = MakeMat(new Color(0.85f, 0.9f, 0.95f));
         BeerMat = MakeMat(new Color(1f, 0.75f, 0.1f));
-        SuccessMat = MakeMat(new Color(0.2f, 0.9f, 0.3f));
-        FailMat = MakeMat(new Color(0.9f, 0.2f, 0.2f));
+        ConfettiMats = new[]
+        {
+            MakeMat(new Color(1f, 0.25f, 0.3f)),
+            MakeMat(new Color(1f, 0.85f, 0.1f)),
+            MakeMat(new Color(0.2f, 0.85f, 0.35f)),
+            MakeMat(new Color(0.25f, 0.55f, 1f)),
+            MakeMat(new Color(1f, 0.45f, 0.85f)),
+            MakeMat(Color.white),
+        };
     }
 
     Renderer Box(string name, Vector3 pos, Vector3 size)

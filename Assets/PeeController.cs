@@ -40,9 +40,9 @@ public class PeeController : MonoBehaviour
     [Header("コンベア（空なら自動で探す）")]
     public BeerConveyor conveyor;
 
-    [Header("スコア")]
-    public float parTime = 30f;           // これより早いとボーナス
-    public float timeBonusPerSec = 50f;   // 1秒早いごとの加算
+    [Header("スコア ＝ 成功数×successPoint ＋ 命中率(%)×ratePoint")]
+    public int successPoint = 1000;   // 成功ジョッキ1個の点
+    public int ratePoint = 10;        // 命中率1%あたりの点
     public int rankingSize = 5;
 
     ParticleSystem ps;
@@ -230,15 +230,13 @@ public class PeeController : MonoBehaviour
     int Succeeded => conveyor != null ? conveyor.Succeeded : 0;
     int Finished => conveyor != null ? conveyor.Finished : 0;
 
-    // 段階4で新ルールの式に変更する
-    int CalcScore()
-    {
-        float score = Rate() * 100f
-                    + Mathf.Max(0f, parTime - elapsed) * timeBonusPerSec;
-        return Mathf.RoundToInt(score);
-    }
+    int SuccessScore => Succeeded * successPoint;
+    int RateScore => Mathf.RoundToInt(Rate() * ratePoint);
+    int CalcScore() => SuccessScore + RateScore;
 
-    string Rank(float r) => r >= 98f ? "S" : r >= 95f ? "A" : r >= 90f ? "B" : "C";
+    // 成功率（成功 ÷ 判定されたジョッキ）
+    float SuccessRate() => Finished == 0 ? 0f : Succeeded * 100f / Finished;
+    string Rank(float sr) => sr >= 90f ? "S" : sr >= 70f ? "A" : sr >= 50f ? "B" : "C";
 
     List<int> LoadRanking()
     {
@@ -255,43 +253,67 @@ public class PeeController : MonoBehaviour
         PlayerPrefs.Save();
     }
 
-    void DrawBar(Rect r, float ratio, Color fill)
+    // ---- 我慢ゲージ（円グラフ。発射位置の右隣に出す） ----
+    const int PieSize = 96;
+    Texture2D pieFull, pieTex;
+    int pieKey = -1;
+
+    // 上から時計回りに ratio 分だけ白く塗った円のテクスチャ
+    static void FillPie(Texture2D tex, float ratio)
     {
-        var old = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.6f);
-        GUI.DrawTexture(r, Texture2D.whiteTexture);
-        GUI.color = fill;
-        GUI.DrawTexture(new Rect(r.x + 3, r.y + 3, (r.width - 6) * Mathf.Clamp01(ratio), r.height - 6),
-                        Texture2D.whiteTexture);
-        GUI.color = old;
+        var px = new Color32[PieSize * PieSize];
+        float c = (PieSize - 1) * 0.5f, rad = PieSize * 0.5f - 1f;
+        for (int y = 0; y < PieSize; y++)
+            for (int x = 0; x < PieSize; x++)
+            {
+                float dx = x - c, dy = y - c;
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                float ang = Mathf.Atan2(dx, dy) * Mathf.Rad2Deg;
+                if (ang < 0f) ang += 360f;
+                byte a = (byte)(Mathf.Clamp01(rad - d + 0.5f) * 255f); // ふちをなめらかに
+                bool inside = ang <= ratio * 360f;
+                px[y * PieSize + x] = new Color32(255, 255, 255, inside ? a : (byte)0);
+            }
+        tex.SetPixels32(px);
+        tex.Apply();
     }
 
-    void DrawHoldGauge(GUIStyle hud)
+    static Texture2D NewPieTex() =>
+        new Texture2D(PieSize, PieSize, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+
+    void DrawHoldGauge()
     {
-        float x = 20, y = 80;
-        string label;
+        var cam = Camera.main;
+        if (cam == null) return;
+
         float ratio;
-        Color col;
-        if (holding)
-        {
-            label = "我慢中";
-            ratio = 1f - holdUsed / holdMax;
-            col = new Color(1f, 0.6f, 0.1f);
-        }
-        else if (cooldownLeft > 0f)
-        {
-            label = "クールタイム";
-            ratio = 1f - cooldownLeft / holdCooldown;
-            col = new Color(0.5f, 0.5f, 0.5f);
-        }
-        else
-        {
-            label = "我慢OK";
-            ratio = 1f;
-            col = new Color(0.3f, 0.8f, 1f);
-        }
-        GUI.Label(new Rect(x, y, 220, 50), label, hud);
-        DrawBar(new Rect(x + 220, y + 8, 300, 32), ratio, col);
+        string label;
+        float alpha = 1f;
+        if (holding) { ratio = 1f - holdUsed / holdMax; label = "我慢中"; }
+        else if (cooldownLeft > 0f) { ratio = 1f - cooldownLeft / holdCooldown; label = "まって"; alpha = 0.4f; }
+        else { ratio = 1f; label = "我慢OK"; }
+
+        if (pieFull == null) { pieFull = NewPieTex(); FillPie(pieFull, 1f); }
+        if (pieTex == null) pieTex = NewPieTex();
+        int key = Mathf.RoundToInt(ratio * 100f);
+        if (key != pieKey) { pieKey = key; FillPie(pieTex, ratio); }
+
+        // 発射位置の右隣（画面の外なら下端に寄せる）
+        Vector3 sp = cam.WorldToScreenPoint(transform.position);
+        float gx = sp.x + 40f;
+        float gy = Mathf.Clamp(Screen.height - sp.y - PieSize * 0.5f, 10f, Screen.height - PieSize - 50f);
+        var rect = new Rect(gx, gy, PieSize, PieSize);
+
+        var old = GUI.color;
+        GUI.color = new Color(0f, 0f, 0f, 0.5f);
+        GUI.DrawTexture(rect, pieFull);
+        GUI.color = new Color(1f, 0.55f, 0.05f, alpha);
+        GUI.DrawTexture(rect, pieTex);
+        GUI.color = old;
+
+        var st = new GUIStyle(GUI.skin.label) { fontSize = 24, alignment = TextAnchor.MiddleCenter };
+        st.normal.textColor = new Color(1f, 0.6f, 0.1f);
+        GUI.Label(new Rect(gx - 30, gy + PieSize, PieSize + 60, 36), label, st);
     }
 
     void OnGUI()
@@ -301,7 +323,8 @@ public class PeeController : MonoBehaviour
         var hud = new GUIStyle(GUI.skin.label) { fontSize = 32 };
         var board = new GUIStyle(GUI.skin.box) { fontSize = 30, alignment = TextAnchor.UpperLeft, padding = new RectOffset(20, 20, 16, 16) };
         Rect center = new Rect(0, Screen.height * 0.2f, Screen.width, 120);
-        Rect below = new Rect(0, Screen.height * 0.2f + 120, Screen.width, 300);
+        Rect below = new Rect(0, Screen.height * 0.2f + 120, Screen.width, 460);
+        var small = new GUIStyle(mid) { fontSize = 26 };
 
         switch (state)
         {
@@ -311,26 +334,31 @@ public class PeeController : MonoBehaviour
                 GUI.Label(below,
                     "マウスで狙え（上下で奥のレーン）　左クリック長押しで踏ん張れ\n" +
                     "スペース長押しで我慢（最大1秒）\n" +
-                    "ジョッキを9割以上満たして左端へ送れ！" + best, mid);
+                    "ジョッキを9割まで満たせば成功！\n" +
+                    $"点数 ＝ 成功1個 {successPoint}点 ＋ 命中率1% {ratePoint}点" + best, mid);
                 break;
 
             case State.Peeing:
             case State.Finishing:
-                GUI.Label(new Rect(20, 20, 1400, 50),
-                    $"成功 {Succeeded}/{Finished}　命中率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%　{elapsed:F1}秒　あふれ {overflowCount}", hud);
-                if (state == State.Peeing) DrawHoldGauge(hud);
+                GUI.Label(new Rect(20, 20, 1600, 50),
+                    $"{CalcScore()}点　成功 {Succeeded}/{Finished}　命中率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%", hud);
+                if (state == State.Peeing) DrawHoldGauge();
                 if (state == State.Peeing && remaining < weakThreshold)
                     GUI.Label(below, "右クリック連打で振れ！", mid);
                 break;
 
             case State.Result:
                 float r = Rate();
-                GUI.Label(center, $"ランク {Rank(r)}", big);
-                string record = myRank == 0 ? "\n★ 本日の新記録！ ★" : "";
+                float sr = SuccessRate();
+                GUI.Label(center, $"ランク {Rank(sr)}", big);
+                string record = myRank == 0 ? "　★ 本日の新記録！ ★" : "";
                 GUI.Label(below,
                     $"{finalScore} 点{record}\n" +
-                    $"成功 {Succeeded}/{Finished}　命中率 {r:F1}%　タイム {elapsed:F1}秒\n" +
-                    $"あなたの足元に {outCount} 滴\n\nRでもう一度", mid);
+                    $"成功ジョッキ {Succeeded}個 × {successPoint}点 ＝ {SuccessScore}点\n" +
+                    $"命中率 {r:F1}% × {ratePoint}点 ＝ {RateScore}点\n" +
+                    $"あふれ {overflowCount}滴　あなたの足元に {outCount} 滴\n\nRでもう一度", mid);
+                GUI.Label(new Rect(0, Screen.height - 60, Screen.width, 40),
+                    $"ランクは成功率で決まる（今回 {Succeeded}/{Finished}個 = {sr:F0}%）　S 90%以上 / A 70%以上 / B 50%以上", small);
 
                 string list = "本日のランキング\n";
                 for (int i = 0; i < ranking.Count; i++)

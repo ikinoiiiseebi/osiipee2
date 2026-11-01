@@ -13,6 +13,8 @@ public class BeerMug : MonoBehaviour
     Transform beer;
     int capacity, drops;
     bool judged;
+    const float PopTime = 0.4f;
+    float popTimer;
     float width, height;
 
     public float Fill => (float)drops / capacity; // 0〜1
@@ -63,6 +65,15 @@ public class BeerMug : MonoBehaviour
         if (IsFull) return false;
         drops++;
         UpdateBeer();
+
+        // 流れている途中でも9割を超えた瞬間に成功：ふくらんでクラッカー
+        if (!judged && Fill >= conveyor.successRatio)
+        {
+            judged = true;
+            popTimer = PopTime;
+            Confetti.Burst(transform.position + Vector3.up * height, conveyor.ConfettiMats);
+            conveyor.Report(this, true);
+        }
         return true;
     }
 
@@ -91,17 +102,22 @@ public class BeerMug : MonoBehaviour
 
     void Update()
     {
+        // 成功したときにふくらむ（ぽよん）
+        if (popTimer > 0f)
+        {
+            popTimer -= Time.deltaTime;
+            float t = 1f - Mathf.Clamp01(popTimer / PopTime);
+            transform.localScale = Vector3.one * (1f + 0.35f * Mathf.Sin(t * Mathf.PI));
+        }
+
         if (conveyor == null || conveyor.Halted) return;
         transform.position += Vector3.left * (conveyor.beltSpeed * Time.deltaTime);
 
-        // 左端で判定：9割以上で成功（緑）、足りなければ失敗（赤）
+        // 9割に届かないまま左端のラインを越えたら失敗
         if (!judged && transform.position.x <= conveyor.endX)
         {
             judged = true;
-            bool success = Fill >= conveyor.successRatio;
-            var mat = success ? conveyor.SuccessMat : conveyor.FailMat;
-            foreach (var r in glassParts) r.sharedMaterial = mat;
-            conveyor.Report(this, success);
+            conveyor.Report(this, false);
         }
 
         if (transform.position.x <= conveyor.despawnX)
