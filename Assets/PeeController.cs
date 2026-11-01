@@ -82,6 +82,9 @@ public class PeeController : MonoBehaviour
         if (GetComponent<PeeLook>() == null) gameObject.AddComponent<PeeLook>(); // 液体っぽい見た目
         state = skipTitle ? State.Countdown : State.Title;
         skipTitle = false;
+        // タイトル（とリザルト）は同じ曲。T で戻ったときは鳴らし直さず流し続ける
+        if (state == State.Title) GameAudio.TitleResultBgm();
+        else GameAudio.PlayBgm();
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         // スペースなどのキーをゲームが受け取り、ページがスクロールしないようにする
@@ -114,7 +117,11 @@ public class PeeController : MonoBehaviour
         {
             case State.Title:
                 if (mouse.leftButton.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)
+                {
                     state = State.Countdown;
+                    GameAudio.Unlock();     // WebGL：最初のクリックで音が出せるようになる
+                    GameAudio.PlayBgm();
+                }
                 CheckClearRanking(kb);
                 break;
 
@@ -156,16 +163,28 @@ public class PeeController : MonoBehaviour
                     SaveScore(finalScore);
                     state = State.Result;
                     resultTime = Time.time;
+                    GameAudio.TitleResultBgm();
                 }
                 break;
 
             case State.Result:
+                // 判子が押される瞬間（DrawResult の演出と同じ 1.2 秒後）に音を鳴らす
+                if (!stampPlayed && Time.time - resultTime >= 1.2f)
+                {
+                    stampPlayed = true;
+                    GameAudio.Stamp();
+                }
                 if (kb.rKey.wasPressedThisFrame) Restart(true);    // もう一度
                 if (kb.tKey.wasPressedThisFrame) Restart(false);   // タイトルへ
                 CheckClearRanking(kb);
                 break;
         }
+
+        // おしっぴーの音：発射中だけ鳴らす（我慢中・タンクが空のときは止める）
+        GameAudio.Pee(state == State.Peeing && !holding, mouse.leftButton.isPressed);
     }
+
+    bool stampPlayed;
 
     // 新しく成功したジョッキがあり、そのときのコンボが comboToRecover 以上なら残量を回復（おかわり）
     void CheckComboRecover()

@@ -86,8 +86,8 @@ public class BeerConveyor : MonoBehaviour
     public void Report(BeerMug mug, bool success)
     {
         Finished++;
-        if (success) { Succeeded++; Combo++; }
-        else Combo = 0;
+        if (success) { Succeeded++; Combo++; GameAudio.Success(); }
+        else { Combo = 0; GameAudio.Fail(); }
 
         string text = !success ? "失敗…" : Combo >= 2 ? $"{Combo}連続！" : "成功！";
         popups.Add(new Popup
