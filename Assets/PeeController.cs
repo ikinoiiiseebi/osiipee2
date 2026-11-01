@@ -346,16 +346,21 @@ public class PeeController : MonoBehaviour
         float gy = Mathf.Clamp(gp.y - PieSize * 0.5f, 10f, GuiScale.Height - PieSize - 50f);
         var rect = new Rect(gx, gy, PieSize, PieSize);
 
-        var old = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.5f);
-        GUI.DrawTexture(rect, pieFull);
-        GUI.color = new Color(1f, 0.55f, 0.05f, alpha);
-        GUI.DrawTexture(rect, pieTex);
-        GUI.color = old;
-
-        var st = new GUIStyle(GUI.skin.label) { fontSize = 24, alignment = TextAnchor.MiddleCenter };
-        st.normal.textColor = new Color(1f, 0.6f, 0.1f);
-        GUI.Label(new Rect(gx - 30, gy + PieSize, PieSize + 60, 36), label, st);
+        if (Event.current.type == EventType.Repaint)
+        {
+            var old = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.35f);              // 落ち影
+            GUI.DrawTexture(new Rect(rect.x - 3, rect.y + 2, PieSize + 6, PieSize + 6), pieFull);
+            GUI.color = Ui.Border;                                  // オレンジのふち
+            GUI.DrawTexture(new Rect(rect.x - 4, rect.y - 4, PieSize + 8, PieSize + 8), pieFull);
+            GUI.color = Ui.Panel;                                   // こげ茶の土台
+            GUI.DrawTexture(rect, pieFull);
+            GUI.color = new Color(Ui.Border.r, Ui.Border.g, Ui.Border.b, alpha); // 残り（オレンジ）
+            GUI.DrawTexture(new Rect(rect.x + 6, rect.y + 6, PieSize - 12, PieSize - 12), pieTex);
+            GUI.color = old;
+        }
+        Ui.Text(rect, "我慢", 24, Ui.Cream, TextAnchor.MiddleCenter, 2f);
+        Ui.Text(new Rect(gx - 40, gy + PieSize + 4, PieSize + 80, 36), label, 24, Ui.Border, TextAnchor.MiddleCenter, 2f);
     }
 
     // ---- タイトル画面 ----
@@ -424,14 +429,6 @@ public class PeeController : MonoBehaviour
         GuiScale.Apply();
         float sw = GuiScale.Width, sh = GuiScale.Height;
 
-        var big = new GUIStyle(GUI.skin.label) { fontSize = 80, alignment = TextAnchor.MiddleCenter };
-        var mid = new GUIStyle(GUI.skin.label) { fontSize = 36, alignment = TextAnchor.MiddleCenter };
-        var hud = new GUIStyle(GUI.skin.label) { fontSize = 32 };
-        var board = new GUIStyle(GUI.skin.box) { fontSize = 30, alignment = TextAnchor.UpperLeft, padding = new RectOffset(20, 20, 16, 16) };
-        Rect center = new Rect(0, sh * 0.2f, sw, 120);
-        Rect below = new Rect(0, sh * 0.2f + 120, sw, 460);
-        var small = new GUIStyle(mid) { fontSize = 26 };
-
         switch (state)
         {
             case State.Title:
@@ -439,37 +436,143 @@ public class PeeController : MonoBehaviour
                 break;
 
             case State.Countdown:
-                GUI.Label(center, Mathf.CeilToInt(countdown).ToString(), big);
-                GUI.Label(below, "ジョッキを9割まで満たせ！", mid);
+                DrawCountdown(sw);
                 break;
 
             case State.Peeing:
             case State.Finishing:
-                GUI.Label(new Rect(20, 20, 1600, 50),
-                    $"{CalcScore()}点　成功 {Succeeded}/{Finished}　命中率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%", hud);
+                DrawHud(sw);
                 if (state == State.Peeing) DrawHoldGauge();
                 if (state == State.Peeing && remaining < weakThreshold)
-                    GUI.Label(below, "右クリック連打で振れ！", mid);
+                {
+                    var c = Ui.Alert; c.a = Ui.Blink(8f);
+                    var m = Ui.BeginScale(new Vector2(sw / 2, 560), 1f + 0.06f * Mathf.Sin(Time.time * 16f));
+                    Ui.Text(new Rect(0, 530, sw, 60), "右クリック連打で振れ！", 44, c, TextAnchor.MiddleCenter);
+                    Ui.EndScale(m);
+                }
                 break;
 
             case State.Result:
-                float r = Rate();
-                float sr = SuccessRate();
-                GUI.Label(center, $"ランク {Rank(sr)}", big);
-                string record = myRank == 0 ? "　★ 本日の新記録！ ★" : "";
-                GUI.Label(below,
-                    $"{finalScore} 点{record}\n" +
-                    $"成功ジョッキ {Succeeded}個 × {successPoint}点 ＝ {SuccessScore}点\n" +
-                    $"命中率 {r:F1}% × {ratePoint}点 ＝ {RateScore}点\n" +
-                    $"あふれ {overflowCount}滴　あなたの足元に {outCount} 滴\n\nR：もう一度　T：タイトルへ", mid);
-                GUI.Label(new Rect(0, sh - 60, sw, 40),
-                    $"ランクは成功率で決まる（今回 {Succeeded}/{Finished}個 = {sr:F0}%）　S 90%以上 / A 70%以上 / B 50%以上", small);
-
-                string list = "本日のランキング\n";
-                for (int i = 0; i < ranking.Count; i++)
-                    list += $"{(i == myRank ? "▶" : "　")}{i + 1}位　{ranking[i]}点\n";
-                GUI.Box(new Rect(sw - 380, 20, 360, 60 + 44 * rankingSize), list, board);
+                DrawResult(sw);
                 break;
         }
+    }
+
+    // ---- カウントダウン ----
+    void DrawCountdown(float sw)
+    {
+        int n = Mathf.CeilToInt(countdown);
+        float frac = countdown - Mathf.Floor(countdown);   // 1→0 へ減る
+        var m = Ui.BeginScale(new Vector2(sw / 2, 250), 1f + 0.5f * frac * frac);
+        Ui.Outlined(new Rect(0, 160, sw, 180), n.ToString(), 160, Ui.Beer, Ui.Cream, TextAnchor.MiddleCenter, 5f);
+        Ui.EndScale(m);
+        Ui.Text(new Rect(0, 360, sw, 50), "ジョッキを9割まで満たせ！", 34, Ui.Cream, TextAnchor.MiddleCenter);
+    }
+
+    // ---- プレイ中の HUD ----
+    int lastSucceeded;
+    float bumpTime = -10f;
+
+    void DrawHud(float sw)
+    {
+        if (Succeeded > lastSucceeded) { lastSucceeded = Succeeded; bumpTime = Time.time; }
+        float bt = Time.time - bumpTime;
+
+        // 左上：スコア（成功すると跳ねて「+1000」が浮かぶ）
+        var sp = new Rect(20, 16, 320, 104);
+        Ui.Box(sp);
+        Ui.Text(new Rect(sp.x + 22, sp.y + 8, 200, 30), "SCORE", 20, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        float s = bt < 0.35f ? 1f + 0.3f * Mathf.Sin(bt / 0.35f * Mathf.PI) : 1f;
+        var m = Ui.BeginScale(new Vector2(sp.x + 110, sp.y + 70), s);
+        Ui.Text(new Rect(sp.x + 22, sp.y + 34, sp.width - 44, 64), $"{CalcScore():N0}", 54, Ui.Beer);
+        Ui.EndScale(m);
+        if (bt < 1f)
+        {
+            var g = Ui.Border; g.a = 1f - bt;
+            Ui.Text(new Rect(sp.xMax + 14, sp.y + 30 - bt * 30f, 200, 50), $"+{successPoint:N0}", 36, g);
+        }
+
+        // 右上：成功・命中率・残量
+        var st = new Rect(sw - 360, 16, 340, 160);
+        Ui.Box(st);
+        float lx = st.x + 24, rw = st.width - 48;
+        Ui.Text(new Rect(lx, st.y + 12, rw, 44), "成功", 24, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        Ui.Text(new Rect(lx, st.y + 10, rw, 44), $"{Succeeded} / {Finished}", 34, Ui.Beer, TextAnchor.MiddleRight);
+        Ui.Text(new Rect(lx, st.y + 58, rw, 44), "命中率", 24, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        Ui.Text(new Rect(lx, st.y + 56, rw, 44), $"{Rate():F1}%", 34, Ui.Beer, TextAnchor.MiddleRight);
+        Ui.Text(new Rect(lx, st.y + 104, rw, 44), "残量", 24, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        float tankRatio = Mathf.Max(0f, remaining) / tank;
+        Color barCol = Ui.Beer;
+        if (remaining < weakThreshold) { barCol = Ui.Alert; barCol.a = Ui.Blink(8f); }
+        Ui.Bar(new Rect(lx + 80, st.y + 112, rw - 80, 28), tankRatio, barCol);
+    }
+
+    // ---- リザルト ----
+    void DrawResult(float sw)
+    {
+        Ui.Dim(0.5f);
+        float t = Time.time - resultTime;
+
+        float mainW = 640f, rankW = 400f, gap = 30f;
+        float x0 = sw / 2 - (mainW + gap + rankW) / 2;
+        var main = new Rect(x0, 50, mainW, 530);
+        Ui.Box(main);
+        Ui.Text(new Rect(main.x, main.y + 12, main.width, 36), "RESULT", 26, Ui.Border, TextAnchor.MiddleCenter, 2f);
+
+        // ランク（点数のカウントアップのあとにポンと出る）
+        float sr = SuccessRate();
+        string rank = Rank(sr);
+        Ui.Text(new Rect(main.x + 30, main.y + 56, 200, 36), "ランク", 26, Ui.Cream, TextAnchor.MiddleCenter, 2f);
+        float rt = t - 1.2f;
+        if (rt >= 0f)
+        {
+            Color rc = rank == "S" ? Ui.Beer : rank == "A" ? Ui.Border : rank == "B" ? Ui.Cream : new Color(0.75f, 0.7f, 0.65f);
+            float rs = 1f + 0.8f * Mathf.Max(0f, 1f - rt / 0.25f);
+            var m = Ui.BeginScale(new Vector2(main.x + 130, main.y + 170), rs);
+            Ui.Outlined(new Rect(main.x + 30, main.y + 90, 200, 160), rank, 150, rc, Ui.Shadow, TextAnchor.MiddleCenter, 4f);
+            Ui.EndScale(m);
+        }
+
+        // 点数（カウントアップ）
+        float k = Mathf.Clamp01(t / 1.2f);
+        int shown = Mathf.RoundToInt(finalScore * (1f - (1f - k) * (1f - k)));
+        Ui.Text(new Rect(main.x + 250, main.y + 70, 360, 36), "SCORE", 24, Ui.Cream, TextAnchor.MiddleRight, 2f);
+        Ui.Text(new Rect(main.x + 230, main.y + 104, 380, 90), $"{shown:N0}", 72, Ui.Beer, TextAnchor.MiddleRight, 4f);
+        if (myRank == 0 && rt >= 0f)
+        {
+            var c = Ui.Border; c.a = Ui.Blink(5f);
+            Ui.Text(new Rect(main.x + 230, main.y + 196, 380, 44), "★ 本日の新記録！ ★", 30, c, TextAnchor.MiddleRight);
+        }
+
+        // 内訳
+        Ui.Round(new Rect(main.x + 30, main.y + 268, main.width - 60, 3), new Color(Ui.Border.r, Ui.Border.g, Ui.Border.b, 0.6f));
+        float bx = main.x + 40, bw = main.width - 80;
+        Ui.Text(new Rect(bx, main.y + 286, bw, 44), $"成功ジョッキ {Succeeded}個 × {successPoint:N0}点", 26, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        Ui.Text(new Rect(bx, main.y + 286, bw, 44), $"{SuccessScore:N0} 点", 30, Ui.Beer, TextAnchor.MiddleRight);
+        Ui.Text(new Rect(bx, main.y + 334, bw, 44), $"命中率 {Rate():F1}% × {ratePoint}点", 26, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+        Ui.Text(new Rect(bx, main.y + 334, bw, 44), $"{RateScore:N0} 点", 30, Ui.Beer, TextAnchor.MiddleRight);
+
+        var dim = Ui.Cream; dim.a = 0.8f;
+        Ui.Text(new Rect(main.x, main.y + 396, main.width, 36),
+            $"あふれ {overflowCount}滴　あなたの足元に {outCount}滴", 22, dim, TextAnchor.MiddleCenter, 2f);
+        Ui.Text(new Rect(main.x, main.y + 450, main.width, 56),
+            $"ランクは成功率で決まる（今回 {Succeeded}/{Finished}個 = {sr:F0}%）\nS 90%以上　A 70%以上　B 50%以上", 19, dim, TextAnchor.MiddleCenter, 2f);
+
+        // 本日のランキング
+        DrawRankingPanel(new Rect(main.xMax + gap, 50, rankW, 530), myRank);
+
+        // ボタン（キーでもクリックでも）
+        if (PillButton(new Rect(sw / 2 - 260, 610, 240, 64), "R：もう一度")) Restart(true);
+        if (PillButton(new Rect(sw / 2 + 20, 610, 240, 64), "T：タイトルへ")) Restart(false);
+    }
+
+    bool PillButton(Rect r, string label)
+    {
+        bool hover = r.Contains(Event.current.mousePosition);
+        Ui.Round(new Rect(r.x + 2, r.y + 5, r.width, r.height), new Color(0f, 0f, 0f, 0.35f));
+        Ui.Round(r, Ui.Border);
+        Ui.Round(new Rect(r.x + 3, r.y + 3, r.width - 6, r.height - 6), hover ? new Color(0.35f, 0.2f, 0.08f, 0.95f) : Ui.Panel);
+        Ui.Text(r, label, 30, Ui.Beer, TextAnchor.MiddleCenter);
+        return GUI.Button(r, GUIContent.none, GUIStyle.none);
     }
 }

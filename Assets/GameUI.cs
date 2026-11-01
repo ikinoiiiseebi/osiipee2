@@ -74,13 +74,26 @@ public static class Ui
         }
     }
 
-    // 角丸の四角を塗る
+    static readonly System.Collections.Generic.Dictionary<int, GUIStyle> smallStyles =
+        new System.Collections.Generic.Dictionary<int, GUIStyle>();
+
+    // 角丸の四角を塗る（小さい四角は角の丸みも小さくする）
     public static void Round(Rect r, Color c)
     {
         if (Event.current.type != EventType.Repaint) return;
+        var style = RoundStyle;
+        int b = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(r.width, r.height) / 2f), 1, Radius);
+        if (b < Radius)
+        {
+            if (!smallStyles.TryGetValue(b, out style) || style.normal.background != roundTex)
+            {
+                style = new GUIStyle(RoundStyle) { border = new RectOffset(b, b, b, b) };
+                smallStyles[b] = style;
+            }
+        }
         var old = GUI.color;
         GUI.color = c;
-        RoundStyle.Draw(r, false, false, false, false);
+        style.Draw(r, false, false, false, false);
         GUI.color = old;
     }
 

@@ -75,7 +75,7 @@ public class BeerConveyor : MonoBehaviour
         {
             pos = mug.transform.position + Vector3.up * (mugHeight + 0.08f),
             text = success ? "成功！" : "失敗…",
-            color = success ? new Color(0.3f, 1f, 0.3f) : new Color(1f, 0.35f, 0.3f),
+            color = success ? Ui.Beer : Ui.Alert,
             time = Time.time
         });
     }
@@ -178,12 +178,6 @@ public class BeerConveyor : MonoBehaviour
         var cam = Camera.main;
         if (cam == null) return;
         GuiScale.Apply();
-        var style = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 44,
-            fontStyle = FontStyle.Bold,
-            alignment = TextAnchor.MiddleCenter
-        };
 
         for (int i = popups.Count - 1; i >= 0; i--)
         {
@@ -196,8 +190,11 @@ public class BeerConveyor : MonoBehaviour
             // 画面の端で見切れないよう内側に寄せる（文字の幅 約150 + 余白）
             float x = Mathf.Clamp(gp.x, 90f, GuiScale.Width - 90f);
             float y = Mathf.Clamp(gp.y - age * 60f, 40f, GuiScale.Height - 40f);   // 少しずつ上へ
-            style.normal.textColor = new Color(p.color.r, p.color.g, p.color.b, 1f - age / PopupTime);
-            GUI.Label(new Rect(x - 150, y - 30, 300, 60), p.text, style);
+            var col = new Color(p.color.r, p.color.g, p.color.b, 1f - age / PopupTime);
+            float s = 1f + 0.5f * Mathf.Max(0f, 1f - age / 0.2f);   // 出た瞬間だけ大きく
+            var m = Ui.BeginScale(new Vector2(x, y), s);
+            Ui.Outlined(new Rect(x - 150, y - 30, 300, 60), p.text, 44, col, Ui.Shadow, TextAnchor.MiddleCenter, 3f);
+            Ui.EndScale(m);
         }
     }
 }
