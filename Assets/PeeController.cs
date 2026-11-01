@@ -41,7 +41,7 @@ public class PeeController : MonoBehaviour
 
     ParticleSystem ps;
     readonly List<ParticleCollisionEvent> events = new List<ParticleCollisionEvent>();
-    int inCount, outCount, flyCount;
+    int inCount, outCount, overflowCount, flyCount;
     State state = State.Countdown;
     float countdown = 3f, elapsed, remaining, lastShake = -10f, endTimer;
     int finalScore, myRank = -1;
@@ -130,30 +130,33 @@ public class PeeController : MonoBehaviour
     void OnParticleCollision(GameObject other)
     {
         int n = ps.GetCollisionEvents(other, events);
-        bool isFly = other.CompareTag("Fly");
 
-        if (isFly || other.CompareTag("Urinal"))
+        // 液面：注げた（満タンならあふれ＝外れ）
+        var surface = other.GetComponent<BeerSurface>();
+        if (surface != null && surface.mug != null)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                if (surface.mug.AddDrop()) inCount++;
+                else overflowCount++;
+            }
+            return;
+        }
+
+        // それ以外（ジョッキのふち・外側、コンベア、床、壁）はすべて外れ
+        outCount += n;
+
+        // ジョッキに正面から強く当たると跳ねる
+        if (other.GetComponentInParent<BeerMug>() != null)
         {
             for (int i = 0; i < n; i++)
             {
                 var e = events[i];
-                inCount++;
-                if (isFly) flyCount++;
-
                 float vn = Mathf.Abs(Vector3.Dot(e.velocity, e.normal));
                 float chance = Mathf.Clamp01(
                     (vn - splashThreshold) / (splashMaxSpeed - splashThreshold)) * maxSplashChance;
-
-                if (Random.value < chance)
-                {
-                    outCount++;
-                    EmitSplash(e);
-                }
+                if (Random.value < chance) EmitSplash(e);
             }
-        }
-        else if (other.CompareTag("Out"))
-        {
-            outCount += n;
         }
     }
 
@@ -175,7 +178,7 @@ public class PeeController : MonoBehaviour
 
     float Rate()
     {
-        int total = inCount + outCount;
+        int total = inCount + outCount + overflowCount;
         return total == 0 ? 100f : inCount * 100f / total;
     }
 
@@ -226,7 +229,7 @@ public class PeeController : MonoBehaviour
             case State.Peeing:
             case State.Finishing:
                 GUI.Label(new Rect(20, 20, 1200, 50),
-                    $"枠内率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%　{elapsed:F1}秒　ハエ {flyCount}", hud);
+                    $"枠内率 {Rate():F1}%　残量 {Mathf.Max(0, remaining):F0}%　{elapsed:F1}秒　あふれ {overflowCount}", hud);
                 if (state == State.Peeing && remaining < weakThreshold)
                     GUI.Label(below, "スペース連打で振れ！", mid);
                 break;
