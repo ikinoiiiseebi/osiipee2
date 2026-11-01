@@ -74,6 +74,7 @@ public class PeeController : MonoBehaviour
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ranking = LoadRanking();
         if (conveyor == null) conveyor = FindFirstObjectByType<BeerConveyor>();
+        if (GetComponent<PeeLook>() == null) gameObject.AddComponent<PeeLook>(); // 液体っぽい見た目
         state = skipTitle ? State.Countdown : State.Title;
         skipTitle = false;
 
