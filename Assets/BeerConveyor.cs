@@ -193,9 +193,11 @@ public class BeerConveyor : MonoBehaviour
 
             if (cam.WorldToScreenPoint(p.pos).z <= 0f) continue;
             Vector2 gp = GuiScale.WorldToGui(cam, p.pos);
-            float y = gp.y - age * 60f;   // 少しずつ上へ
+            // 画面の端で見切れないよう内側に寄せる（文字の幅 約150 + 余白）
+            float x = Mathf.Clamp(gp.x, 90f, GuiScale.Width - 90f);
+            float y = Mathf.Clamp(gp.y - age * 60f, 40f, GuiScale.Height - 40f);   // 少しずつ上へ
             style.normal.textColor = new Color(p.color.r, p.color.g, p.color.b, 1f - age / PopupTime);
-            GUI.Label(new Rect(gp.x - 150, y - 30, 300, 60), p.text, style);
+            GUI.Label(new Rect(x - 150, y - 30, 300, 60), p.text, style);
         }
     }
 }
