@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 [RequireComponent(typeof(ParticleSystem))]
 public class PeeController : MonoBehaviour
 {
-    enum State { Countdown, Peeing, Finishing, Result }
+    enum State { Title, Countdown, Peeing, Finishing, Result }
 
     [Header("狙い（度）")]
     public float yawRange = 30f;
@@ -51,7 +51,9 @@ public class PeeController : MonoBehaviour
     ParticleSystem ps;
     readonly List<ParticleCollisionEvent> events = new List<ParticleCollisionEvent>();
     int inCount, outCount, overflowCount;
-    State state = State.Countdown;
+    State state = State.Title;
+    static bool skipTitle;   // リザルトで R（もう一度）を押したときはタイトルを飛ばす
+    float resultTime;
     float countdown = 3f, elapsed, remaining, lastShake = -10f, endTimer;
     bool holding;
     float holdUsed, cooldownLeft;
@@ -72,6 +74,8 @@ public class PeeController : MonoBehaviour
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ranking = LoadRanking();
         if (conveyor == null) conveyor = FindFirstObjectByType<BeerConveyor>();
+        state = skipTitle ? State.Countdown : State.Title;
+        skipTitle = false;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         // スペースなどのキーをゲームが受け取り、ページがスクロールしないようにする
@@ -102,6 +106,12 @@ public class PeeController : MonoBehaviour
 
         switch (state)
         {
+            case State.Title:
+                if (mouse.leftButton.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)
+                    state = State.Countdown;
+                CheckClearRanking(kb);
+                break;
+
             case State.Countdown:
                 countdown -= dt;
                 if (countdown <= 0f)
@@ -148,20 +158,32 @@ public class PeeController : MonoBehaviour
                     finalScore = CalcScore();
                     SaveScore(finalScore);
                     state = State.Result;
+                    resultTime = Time.time;
                 }
                 break;
 
             case State.Result:
-                if (kb.rKey.wasPressedThisFrame)
-                    SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-                // Shift + Delete で本日のランキングを消去（F12はブラウザの開発者ツールと重なるため）
-                if (kb.shiftKey.isPressed && kb.deleteKey.wasPressedThisFrame)
-                {
-                    PlayerPrefs.DeleteKey(RankingKey);
-                    ranking.Clear();
-                    myRank = -1;
-                }
+                if (kb.rKey.wasPressedThisFrame) Restart(true);    // もう一度
+                if (kb.tKey.wasPressedThisFrame) Restart(false);   // タイトルへ
+                CheckClearRanking(kb);
                 break;
+        }
+    }
+
+    void Restart(bool playAgain)
+    {
+        skipTitle = playAgain;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    // Shift + Delete で本日のランキングを消去（F12はブラウザの開発者ツールと重なるため）
+    void CheckClearRanking(Keyboard kb)
+    {
+        if (kb.shiftKey.isPressed && kb.deleteKey.wasPressedThisFrame)
+        {
+            PlayerPrefs.DeleteKey(RankingKey);
+            ranking.Clear();
+            myRank = -1;
         }
     }
 
@@ -336,6 +358,66 @@ public class PeeController : MonoBehaviour
         GUI.Label(new Rect(gx - 30, gy + PieSize, PieSize + 60, 36), label, st);
     }
 
+    // ---- タイトル画面 ----
+    void DrawTitle(float sw, float sh)
+    {
+        Ui.Dim(0.45f);
+
+        // ロゴ（ゆらゆら）
+        float bob = Mathf.Sin(Time.time * 2f) * 6f;
+        Ui.Outlined(new Rect(0, 40 + bob, sw, 140), "おしっぴー", 116, Ui.Beer, Ui.Cream, TextAnchor.MiddleCenter, 5f);
+        Ui.Text(new Rect(0, 178, sw, 44), "ジョッキにビールを注げ！ 3レーンのベルトコンベア", 28, Ui.Cream, TextAnchor.MiddleCenter);
+
+        float gap = 30f;
+        float panelW = Mathf.Min(560f, (sw - gap * 3) / 2f);
+        float top = 250f, panelH = 330f;
+
+        // あそびかた
+        var how = new Rect(sw / 2 - gap / 2 - panelW, top, panelW, panelH);
+        Ui.Box(how);
+        Ui.Text(new Rect(how.x + 28, how.y + 16, how.width - 56, 44), "あそびかた", 32, Ui.Beer);
+        string[] lines =
+        {
+            "マウスで狙う（上下で奥のレーン）",
+            "左クリック長押しで踏ん張る（遠くへ）",
+            "スペース長押しで我慢（最大1秒）",
+            "終わりかけは右クリック連打で振る",
+            "ジョッキを9割まで満たせば成功！",
+            $"成功1個 {successPoint}点 ＋ 命中率1% {ratePoint}点",
+        };
+        for (int i = 0; i < lines.Length; i++)
+            Ui.Text(new Rect(how.x + 28, how.y + 70 + i * 40, how.width - 56, 38), "・" + lines[i], 23, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+
+        // 本日のランキング
+        var rank = new Rect(sw / 2 + gap / 2, top, panelW, panelH);
+        DrawRankingPanel(rank, -1);
+
+        // スタート
+        var c = Ui.Beer; c.a = Ui.Blink();
+        Ui.Text(new Rect(0, 610, sw, 60), "クリック または スペースでスタート", 36, c, TextAnchor.MiddleCenter);
+    }
+
+    // 本日のランキングのパネル（highlight 番目を強調）
+    void DrawRankingPanel(Rect r, int highlight)
+    {
+        Ui.Box(r);
+        Ui.Text(new Rect(r.x + 28, r.y + 16, r.width - 56, 44), "本日のランキング", 32, Ui.Beer);
+        if (ranking.Count == 0)
+        {
+            Ui.Text(new Rect(r.x + 28, r.y + 80, r.width - 56, 40), "まだ記録がありません", 24, Ui.Cream, TextAnchor.MiddleLeft, 2f);
+            return;
+        }
+        float rowH = Mathf.Min(48f, (r.height - 90f) / Mathf.Max(1, rankingSize));
+        for (int i = 0; i < ranking.Count; i++)
+        {
+            var row = new Rect(r.x + 18, r.y + 72 + i * rowH, r.width - 36, rowH - 6);
+            if (i == highlight) Ui.Round(row, new Color(Ui.Border.r, Ui.Border.g, Ui.Border.b, 0.55f));
+            Color col = i == 0 ? Ui.Beer : Ui.Cream;
+            Ui.Text(new Rect(row.x + 12, row.y, 90, row.height), $"{i + 1}位", 26, col);
+            Ui.Text(new Rect(row.x, row.y, row.width - 14, row.height), $"{ranking[i]:N0} 点", 28, col, TextAnchor.MiddleRight);
+        }
+    }
+
     void OnGUI()
     {
         // 1280x720 を基準に、画面の高さに合わせて文字も位置もまとめて拡大縮小する
@@ -352,14 +434,13 @@ public class PeeController : MonoBehaviour
 
         switch (state)
         {
+            case State.Title:
+                DrawTitle(sw, sh);
+                break;
+
             case State.Countdown:
                 GUI.Label(center, Mathf.CeilToInt(countdown).ToString(), big);
-                string best = ranking.Count > 0 ? $"\n本日のベスト {ranking[0]}点" : "";
-                GUI.Label(below,
-                    "マウスで狙え（上下で奥のレーン）　左クリック長押しで踏ん張れ\n" +
-                    "スペース長押しで我慢（最大1秒）\n" +
-                    "ジョッキを9割まで満たせば成功！\n" +
-                    $"点数 ＝ 成功1個 {successPoint}点 ＋ 命中率1% {ratePoint}点" + best, mid);
+                GUI.Label(below, "ジョッキを9割まで満たせ！", mid);
                 break;
 
             case State.Peeing:
@@ -380,7 +461,7 @@ public class PeeController : MonoBehaviour
                     $"{finalScore} 点{record}\n" +
                     $"成功ジョッキ {Succeeded}個 × {successPoint}点 ＝ {SuccessScore}点\n" +
                     $"命中率 {r:F1}% × {ratePoint}点 ＝ {RateScore}点\n" +
-                    $"あふれ {overflowCount}滴　あなたの足元に {outCount} 滴\n\nRでもう一度", mid);
+                    $"あふれ {overflowCount}滴　あなたの足元に {outCount} 滴\n\nR：もう一度　T：タイトルへ", mid);
                 GUI.Label(new Rect(0, sh - 60, sw, 40),
                     $"ランクは成功率で決まる（今回 {Succeeded}/{Finished}個 = {sr:F0}%）　S 90%以上 / A 70%以上 / B 50%以上", small);
 
@@ -390,31 +471,5 @@ public class PeeController : MonoBehaviour
                 GUI.Box(new Rect(sw - 380, 20, 360, 60 + 44 * rankingSize), list, board);
                 break;
         }
-    }
-}
-
-// OnGUI を 1280x720 基準で描き、実際の画面の高さに合わせて拡大縮小する
-public static class GuiScale
-{
-    public const float RefHeight = 720f;
-
-    public static float Scale => Mathf.Max(0.01f, Screen.height / RefHeight);
-    public static float Width => Screen.width / Scale;   // 基準座標での画面の幅
-    public static float Height => RefHeight;
-
-    // 画面の文字に使うフォント（PeeController の Inspector で設定）
-    public static Font Font;
-
-    public static void Apply()
-    {
-        GUI.matrix = Matrix4x4.Scale(new Vector3(Scale, Scale, 1f));
-        if (Font != null) GUI.skin.font = Font;
-    }
-
-    // ワールド座標 → 基準座標の GUI 位置（左上原点）
-    public static Vector2 WorldToGui(Camera cam, Vector3 world)
-    {
-        Vector3 sp = cam.WorldToScreenPoint(world);
-        return new Vector2(sp.x / Scale, (Screen.height - sp.y) / Scale);
     }
 }
