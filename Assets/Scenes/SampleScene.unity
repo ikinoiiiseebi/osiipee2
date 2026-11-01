@@ -9807,7 +9807,7 @@ MonoBehaviour:
   yawRange: 45
   downAngle: 25
   upAngle: -25
-  normalSpeed: 2.5
+  normalSpeed: 2.7
   pushSpeed: 4
   weakSpeed: 0.8
   tank: 100
@@ -9823,8 +9823,8 @@ MonoBehaviour:
   maxSplashChance: 0.4
   splashDrops: 3
   conveyor: {fileID: 0}
-  parTime: 30
-  timeBonusPerSec: 50
+  successPoint: 1000
+  ratePoint: 10
   rankingSize: 5
 --- !u!1 &707756269
 GameObject:
