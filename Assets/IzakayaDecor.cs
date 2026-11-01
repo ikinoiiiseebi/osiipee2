@@ -181,16 +181,30 @@ public static class ProcTex
 {
     static Material baseLit;
 
+    // 実行時に作るマテリアルのテンプレート（Assets/Resources/RuntimeLit.mat、シェーダーは URP/Lit）
+    // Resources に置いたマテリアルは必ずビルドに入るので、Lit シェーダーと必要なバリアントも残る。
+    // ※ CreatePrimitive の箱に付いている標準マテリアルはビルドでは URP 用にならずマゼンタになるため使わない
+    public static Material BaseLit
+    {
+        get
+        {
+            if (baseLit != null) return baseLit;
+            baseLit = Resources.Load<Material>("RuntimeLit");
+            if (baseLit == null)
+            {
+                Debug.LogError("Assets/Resources/RuntimeLit.mat（URP/Lit のマテリアル）が見つかりません。ビルドでマゼンタになります。");
+                var tmp = GameObject.CreatePrimitive(PrimitiveType.Cube);   // エディタでだけ動く代わり
+                baseLit = tmp.GetComponent<Renderer>().sharedMaterial;
+                Object.DestroyImmediate(tmp);
+            }
+            return baseLit;
+        }
+    }
+
     // URP の標準 Lit マテリアルをもとに、色・テクスチャ・ツヤを変えたものを作る
     public static Material Mat(Color color, Texture2D tex, Vector2 tiling, float smoothness)
     {
-        if (baseLit == null)
-        {
-            var tmp = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            baseLit = tmp.GetComponent<Renderer>().sharedMaterial;
-            Object.DestroyImmediate(tmp);
-        }
-        var m = new Material(baseLit);
+        var m = new Material(BaseLit);
         m.color = color;
         if (tex != null)
         {

@@ -164,7 +164,7 @@ public class BeerConveyor : MonoBehaviour
         {
             var belt = Box("Belt", new Vector3(midX, beltTopY - 0.025f, z),
                            new Vector3(length, 0.05f, laneWidth));
-            if (baseMat == null) baseMat = belt.sharedMaterial;
+            if (baseMat == null) baseMat = ProcTex.BaseLit;
             belt.sharedMaterial = beltMat;
             // 両側のステンレスのレール（飾り。当たり判定なし）
             foreach (float side in new[] { -1f, 1f })
@@ -183,7 +183,7 @@ public class BeerConveyor : MonoBehaviour
         float depth = maxZ - minZ + laneWidth + 0.04f;
         var frame = Box("Frame", new Vector3(midX, frameH * 0.5f, (minZ + maxZ) * 0.5f),
                         new Vector3(length, frameH, depth));
-        if (baseMat == null) baseMat = frame.sharedMaterial;
+        if (baseMat == null) baseMat = ProcTex.BaseLit;
         frame.sharedMaterial = ProcTex.Mat(new Color(0.5f, 0.32f, 0.19f), ProcTex.Wood(256, 6, 5f),
                                            new Vector2(length / 1.2f, 1f), 0.3f);
 
