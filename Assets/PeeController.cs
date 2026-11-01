@@ -289,7 +289,7 @@ public class PeeController : MonoBehaviour
     float SuccessRate() => Finished == 0 ? 0f : Succeeded * 100f / Finished;
     // ランクは合計点で決める（3,000点未満は D）
     static string Rank(int score) =>
-        score >= 18000 ? "SS" : score >= 15000 ? "S" : score >= 10000 ? "A" :
+        score >= 17000 ? "SS" : score >= 15000 ? "S" : score >= 10000 ? "A" :
         score >= 7000 ? "B" : score >= 3000 ? "C" : "D";
 
     List<int> LoadRanking()
@@ -590,7 +590,7 @@ public class PeeController : MonoBehaviour
 
         var dim = new Color(Wa.Ink.r, Wa.Ink.g, Wa.Ink.b, 0.75f);
         Ui.Text(new Rect(bx, main.y + 306, bw, 32), $"あふれ {overflowCount}滴　あなたの足元に {outCount}滴", 20, dim, TextAnchor.MiddleLeft, 0f);
-        Ui.Text(new Rect(bx, main.y + 346, bw, 30), "判定　SS 18,000〜　S 15,000〜　A 10,000〜", 19, dim, TextAnchor.MiddleLeft, 0f);
+        Ui.Text(new Rect(bx, main.y + 346, bw, 30), "判定　SS 17,000〜　S 15,000〜　A 10,000〜", 19, dim, TextAnchor.MiddleLeft, 0f);
         Ui.Text(new Rect(bx, main.y + 376, bw, 30), "　　　B 7,000〜　C 3,000〜　D 3,000未満", 19, dim, TextAnchor.MiddleLeft, 0f);
 
         // 新記録
