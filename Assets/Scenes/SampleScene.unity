@@ -9817,6 +9817,7 @@ MonoBehaviour:
   shakeBoostTime: 0.15
   holdMax: 1
   holdCooldown: 1
+  uiFont: {fileID: 12800000, guid: f90b537eeeb89ea49b1be8e37612d412, type: 3}
   splash: {fileID: 5424924}
   splashThreshold: 1.2
   splashMaxSpeed: 4
