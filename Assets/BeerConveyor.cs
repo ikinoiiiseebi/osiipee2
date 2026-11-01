@@ -91,7 +91,8 @@ public class BeerConveyor : MonoBehaviour
         if (!Halted && beltMat != null)
         {
             var o = beltMat.mainTextureOffset;
-            o.x = (o.x + beltScrollSign * beltSpeed * Time.deltaTime / BeltTile) % 1f;
+            // 箱の上面はテクスチャの向きが X と逆なので、マイナス方向にずらすとジョッキと同じ向きに流れる
+            o.x = (o.x - beltScrollSign * beltSpeed * Time.deltaTime / BeltTile) % 1f;
             beltMat.mainTextureOffset = o;
         }
 
