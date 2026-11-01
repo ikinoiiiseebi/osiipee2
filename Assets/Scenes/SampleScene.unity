@@ -9809,12 +9809,12 @@ MonoBehaviour:
   upAngle: -25
   normalSpeed: 2.5
   pushSpeed: 4
-  weakSpeed: 0.8
   tank: 100
   normalDrain: 3
   pushDrain: 7
-  weakThreshold: 15
-  shakeBoostTime: 0.15
+  lowWarning: 20
+  comboToRecover: 3
+  recoverPerSuccess: 3.5
   holdMax: 1
   holdCooldown: 1
   uiFont: {fileID: 12800000, guid: f90b537eeeb89ea49b1be8e37612d412, type: 3}
@@ -10379,6 +10379,62 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1763903517
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1763903519}
+  - component: {fileID: 1763903518}
+  m_Layer: 0
+  m_Name: Audio
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1763903518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1763903517}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6619f8be6dc30d74d96809e9fd7a299b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameAudio
+  bgmTitleResult: {fileID: 8300000, guid: 8db97f55eeb29ec4f8808d628f97d102, type: 3}
+  bgmPlay: {fileID: 8300000, guid: f59be39b1955d3e469cf89bea618d970, type: 3}
+  bgmVolume: 0.3
+  bgmFade: 0.6
+  peeLoop: {fileID: 8300000, guid: b34ced6912e80404a8a825bdf0a6a71e, type: 3}
+  peeVolume: 0.9
+  pushVolumeScale: 1.3
+  pushPitch: 1.15
+  success: {fileID: 8300000, guid: 2fb9147de5c003d48baa3a1d10451d21, type: 3}
+  stamp: {fileID: 8300000, guid: 1629c704cc342d448ab75a497b113fdf, type: 3}
+  fail: {fileID: 0}
+  seVolume: 0.8
+--- !u!4 &1763903519
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1763903517}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.75782, y: -1.13265, z: 6.07558}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2060862449
 GameObject:
   m_ObjectHideFlags: 0
@@ -10418,9 +10474,11 @@ MonoBehaviour:
   despawnX: -1.9
   beltHalfLength: 2.8
   laneWidth: 0.18
-  prewarmMinX: -0.3
+  prewarmNearestX: 0.5
   spawnInterval: 3
   beltSpeed: 0.15
+  maxBeltSpeed: 0.3
+  speedRampSeconds: 60
   dropsToFill: 350
   successRatio: 0.9
   mugWidth: 0.14
@@ -10445,6 +10503,7 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 1763903519}
   - {fileID: 1088733507}
   - {fileID: 707756272}
   - {fileID: 1563208983}
