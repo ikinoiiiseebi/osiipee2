@@ -9807,11 +9807,11 @@ MonoBehaviour:
   yawRange: 45
   downAngle: 25
   upAngle: -25
-  normalSpeed: 2.7
+  normalSpeed: 2.5
   pushSpeed: 4
   weakSpeed: 0.8
   tank: 100
-  normalDrain: 3.3
+  normalDrain: 3
   pushDrain: 7
   weakThreshold: 15
   shakeBoostTime: 0.15
